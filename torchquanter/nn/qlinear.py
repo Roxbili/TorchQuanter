@@ -1,9 +1,13 @@
-from .base import QModule, QParam
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+from .base import QModule, QParam, FakeQuantize
 from torchquanter.utils import quantize_tensor
 
 class QLinear(QModule):
 
-    def __init__(self, fc_module, qi=True, qo=True, num_bits=8):
+    def __init__(self, fc_module: nn.Linear, qi=True, qo=True, num_bits=8):
         super(QLinear, self).__init__(qi=qi, qo=qo, num_bits=num_bits)
         self.num_bits = num_bits
         self.fc_module = fc_module
@@ -36,13 +40,15 @@ class QLinear(QModule):
     def forward(self, x):
         if hasattr(self, 'qi'):
             self.qi.update(x)
+            x = FakeQuantize.apply(x, self.qi)
 
         self.qw.update(self.fc_module.weight.data)
-        self.fc_module.weight.data = self.qw.quantize_tensor(self.fc_module.weight.data)    # 利用scale和zero_point进行量化
-        self.fc_module.weight.data = self.qw.dequantize_tensor(self.fc_module.weight.data)  # 利用scale和zero_point进行反量化
+
+        x = F.linear(x, FakeQuantize.apply(self.fc_module.weight, self.qw), self.fc_module.bias)
 
         if hasattr(self, 'qo'):
             self.qo.update(x)
+            x = FakeQuantize.apply(x, self.qo)
 
         return x
 

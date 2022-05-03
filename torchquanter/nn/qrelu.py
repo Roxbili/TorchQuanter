@@ -1,5 +1,6 @@
 import torch.nn.functional as F
-from .base import QModule, QParam
+
+from .base import QModule, QParam, FakeQuantize
 from torchquanter.utils import quantize_tensor
 
 class QReLU(QModule):
@@ -20,6 +21,7 @@ class QReLU(QModule):
     def forward(self, x):
         if hasattr(self, 'qi'):
             self.qi.update(x)
+            x = FakeQuantize.apply(x, self.qi)
 
         x = F.relu(x)
 

@@ -41,6 +41,7 @@ class Model(nn.Module):
         x = self.qconv2(x)
         x = self.qrelu2(x)
         x = self.qmaxpool2(x)
+        x = x.view(-1, 5 * 5 * 64)
         x = self.qfc(x)
         return x
 

@@ -8,16 +8,17 @@ def calcScaleZeroPoint(min_val, max_val, num_bits=8):
     qmin = 0.
     qmax = 2. ** num_bits - 1.
     # HACK 这里scale最好和硬件保持一致，使用2的幂次，即可以用移位实现(参考一下CMSIS-NN)
-    scale = float((max_val - min_val) / (qmax - qmin)) # S=(rmax-rmin)/(qmax-qmin)
+    scale = (max_val - min_val) / (qmax - qmin) # S=(rmax-rmin)/(qmax-qmin)
 
     zero_point = qmax - max_val / scale    # Z=round(qmax-rmax/scale)
 
     if zero_point < qmin:
-        zero_point = qmin
+        zero_point = torch.tensor([qmin], dtype=torch.float32).to(min_val.device)
     elif zero_point > qmax:
-        zero_point = qmax
+        # zero_point = qmax
+        zero_point = torch.tensor([qmax], dtype=torch.float32).to(max_val.device)
     
-    zero_point = int(zero_point)
+    zero_point.round_()
 
     return scale, zero_point
 
