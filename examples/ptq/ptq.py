@@ -1,12 +1,13 @@
 """后训练量化"""
 
-import os
+import os, sys
+sys.path.append(os.path.join(os.getcwd(), 'examples/'))
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-from model import Model
+from models.model import Model
 
 def full_inference(model, test_loader):
     correct = 0
