@@ -88,4 +88,4 @@ if __name__ == "__main__":
     if save_model_dir is not None:
         if not os.path.exists(save_model_dir):
             os.makedirs(save_model_dir)
-            torch.save(model.state_dict(), os.path.join(save_model_dir, 'mnist_cnn_bn.pth'))
+            torch.save(model.state_dict(), os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'))

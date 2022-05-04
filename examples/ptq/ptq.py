@@ -52,7 +52,7 @@ if __name__ == "__main__":
     # 加载模型
     # model = Model()
     model = ModelBN()
-    state_dict = torch.load(os.path.join(save_model_dir, 'mnist_cnn_bn.pth'), map_location=device)
+    state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)
     model.load_state_dict(state_dict)
 
     model.eval()

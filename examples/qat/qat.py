@@ -76,7 +76,7 @@ if __name__ == "__main__":
     # 加载训练好的全精度模型
     # model = Model()
     model = ModelBN()
-    state_dict = torch.load(os.path.join(save_model_dir, 'mnist_cnn_bn.pth'), map_location=device)
+    state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)
     model.load_state_dict(state_dict)
 
     model.eval()
@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
     # save qat model
     model.eval()
-    torch.save(model.state_dict(), os.path.join(save_model_dir, 'mnist_cnn_bn_qat.pth'))
+    torch.save(model.state_dict(), os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'))
 
     # fp32 -> int8/uint8
     model.freeze()
