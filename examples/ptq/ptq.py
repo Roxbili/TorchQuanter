@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-from models.model import Model
+from models.model import Model, ModelBN
 
 def full_inference(model, test_loader):
     correct = 0
@@ -50,8 +50,9 @@ if __name__ == "__main__":
     )
 
     # 加载模型
-    model = Model()
-    state_dict = torch.load(os.path.join(save_model_dir, 'mnist_cnn.pth'), map_location=device)
+    # model = Model()
+    model = ModelBN()
+    state_dict = torch.load(os.path.join(save_model_dir, 'mnist_cnn_bn.pth'), map_location=device)
     model.load_state_dict(state_dict)
 
     model.eval()

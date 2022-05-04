@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-from models.model import Model
+from models.model import Model, ModelBN
 
 def train_one_epoch(model, device, train_loader, optimizer, epoch):
     model.train()
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     epochs = 2
     lr = 0.01
     momentum = 0.5
-    save_model_dir = 'examples/ptq/ckpt'
+    save_model_dir = 'examples/ckpt'
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -75,7 +75,10 @@ if __name__ == "__main__":
         batch_size=batch_size, shuffle=False, num_workers=1, pin_memory=True
     )
 
-    model = Model()
+    # choose model
+    # model = Model()
+    model = ModelBN()
+
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 
     for epoch in range(1, epochs + 1):
@@ -85,4 +88,4 @@ if __name__ == "__main__":
     if save_model_dir is not None:
         if not os.path.exists(save_model_dir):
             os.makedirs(save_model_dir)
-            torch.save(model.state_dict(), os.path.join(save_model_dir, 'mnist_cnn.pth'))
+            torch.save(model.state_dict(), os.path.join(save_model_dir, 'mnist_cnn_bn.pth'))

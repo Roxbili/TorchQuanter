@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
-from torchquanter.nn import QConv2d, QMaxPool2d, QReLU, QLinear
+from torchquanter.nn import QConv2d, QMaxPool2d, QReLU, QLinear, QConvBNReLU
 
 class Model(nn.Module):
     def __init__(self):
@@ -67,6 +68,62 @@ class Model(nn.Module):
         qx = self.qmaxpool1.quantize_inference(qx)
         qx = self.qconv2.quantize_inference(qx)
         qx = self.qrelu2.quantize_inference(qx)
+        qx = self.qmaxpool2.quantize_inference(qx)
+        qx = qx.view(-1, 5 * 5 * 64)
+        qx = self.qfc.quantize_inference(qx)
+        out = self.qfc.qo.dequantize_tensor(qx)
+        return out
+
+
+class ModelBN(nn.Module):
+    def __init__(self):
+        super(ModelBN, self).__init__()
+        self.block = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=3, stride=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(32, 64, kernel_size=3, stride=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(2)
+        )
+        self.fc = nn.Linear(5 * 5 * 64, 10)
+
+    def forward(self, x):
+        x = self.block(x)
+        x = x.view(-1, 5 * 5 * 64)
+        x = self.fc(x)
+        return x
+
+    def quantize(self, num_bits=8):
+        self.qconv1 = QConvBNReLU(self.block[0], self.block[1], qi=True, qo=True, num_bits=num_bits)
+        self.qmaxpool1 = QMaxPool2d(self.block[3])
+        self.qconv2 = QConvBNReLU(self.block[4], self.block[5], qi=False, qo=True, num_bits=num_bits)
+        self.qmaxpool2 = QMaxPool2d(self.block[7])
+        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits)
+
+    def quantize_forward(self, x):
+        x = self.qconv1(x)
+        x = self.qmaxpool1(x)
+        x = self.qconv2(x)
+        x = self.qmaxpool2(x)
+        x = x.view(-1, 5 * 5 * 64)
+        x = self.qfc(x)
+        return x
+
+    def freeze(self):
+        self.qconv1.freeze()
+        self.qmaxpool1.freeze(qi=self.qconv1.qo)
+        self.qconv2.freeze(qi=self.qconv1.qo)
+        self.qmaxpool2.freeze(qi=self.qconv2.qo)
+        self.qfc.freeze(qi=self.qconv2.qo)
+
+    def quantize_inference(self, x):
+        qx = self.qconv1.qi.quantize_tensor(x)
+        qx = self.qconv1.quantize_inference(qx)
+        qx = self.qmaxpool1.quantize_inference(qx)
+        qx = self.qconv2.quantize_inference(qx)
         qx = self.qmaxpool2.quantize_inference(qx)
         qx = qx.view(-1, 5 * 5 * 64)
         qx = self.qfc.quantize_inference(qx)
