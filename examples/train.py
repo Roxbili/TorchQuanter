@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-from models.model import Model, ModelBN
+from models.model import Model, ModelBN, ModelLinear
 
 def train_one_epoch(model, device, train_loader, optimizer, epoch):
     model.train()
@@ -77,7 +77,8 @@ if __name__ == "__main__":
 
     # choose model
     # model = Model()
-    model = ModelBN()
+    # model = ModelBN()
+    model = ModelLinear()
 
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 
@@ -88,4 +89,7 @@ if __name__ == "__main__":
     if save_model_dir is not None:
         if not os.path.exists(save_model_dir):
             os.makedirs(save_model_dir)
-            torch.save(model.state_dict(), os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'))
+
+        model_save_path = os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth')
+        torch.save(model.state_dict(), model_save_path)
+        print(f'model is saved to {model_save_path}')

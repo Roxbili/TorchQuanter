@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torchquanter.nn import QConv2d, QMaxPool2d, QReLU, QLinear, QConvBNReLU
+from torchquanter.nn import QConv2d, QMaxPool2d, QReLU, QLinear, QConvBNReLU, QLinearReLU
 
 class Model(nn.Module):
     def __init__(self):
@@ -128,6 +128,50 @@ class ModelBN(nn.Module):
         qx = qx.view(-1, 5 * 5 * 64)
         qx = self.qfc.quantize_inference(qx)
         out = self.qfc.qo.dequantize_tensor(qx)
+        return out
+
+
+class ModelLinear(nn.Module):
+    def __init__(self,):
+        super(ModelLinear, self).__init__()
+        self.linear1 = nn.Linear(28*28, 512)
+        self.linear2 = nn.Linear(512, 128)
+        self.linear3 = nn.Linear(128, 10)
+        self.activation = nn.ReLU()
+
+    def forward(self, x):
+        x = x.view(-1, 28*28)
+        x = self.linear1(x)
+        x = self.activation(x)
+        x = self.linear2(x)
+        x = self.activation(x)
+        x = self.linear3(x)
+        return x
+
+    def quantize(self, num_bits=8):
+        self.qlinear1 = QLinearReLU(self.linear1)
+        self.qlinear2 = QLinearReLU(self.linear2, qi=False)
+        self.qlinear3 = QLinear(self.linear3, qi=False)
+
+    def quantize_forward(self, x):
+        x = x.view(-1, 28*28)
+        x = self.qlinear1(x)
+        x = self.qlinear2(x)
+        x = self.qlinear3(x)
+        return x
+
+    def freeze(self):
+        self.qlinear1.freeze()
+        self.qlinear2.freeze(qi=self.qlinear1.qo)
+        self.qlinear3.freeze(qi=self.qlinear2.qo)
+
+    def quantize_inference(self, x):
+        x = x.view(-1, 28*28)
+        qx = self.qlinear1.qi.quantize_tensor(x)
+        qx = self.qlinear1.quantize_inference(qx)
+        qx = self.qlinear2.quantize_inference(qx)
+        qx = self.qlinear3.quantize_inference(qx)
+        out = self.qlinear3.qo.dequantize_tensor(qx)
         return out
 
 

@@ -34,7 +34,6 @@ class QConvBNReLU(QModule):
             
         return weight, bias
 
-
     def forward(self, x):
 
         if hasattr(self, 'qi'):
