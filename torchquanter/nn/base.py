@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchquanter.utils import calcScaleZeroPoint, quantize_tensor, dequantize_tensor 
+from torchquanter.utils import calcScaleZeroPoint, quantize_tensor, dequantize_tensor, get_qmin_qmax
 from torch.autograd import Function
 
 
@@ -8,9 +8,12 @@ class QParam(nn.Module):
     """
     Quantization parameters recorder
     """
-    def __init__(self, num_bits=8):
+    def __init__(self, num_bits=8, signed=True):
         super(QParam, self).__init__()
         self.num_bits = num_bits
+        self.signed = signed
+        self.qmin, self.qmax = get_qmin_qmax(num_bits, signed)
+
         scale = torch.tensor([], requires_grad=False)
         zero_point = torch.tensor([], requires_grad=False)
         min = torch.tensor([], requires_grad=False)
@@ -35,10 +38,10 @@ class QParam(nn.Module):
             self.min.data = tensor.min().data
         self.min.clamp_(max=0)
         
-        self.scale, self.zero_point = calcScaleZeroPoint(self.min, self.max, self.num_bits)
+        self.scale, self.zero_point = calcScaleZeroPoint(self.min, self.max, self.num_bits, signed=self.signed)
     
     def quantize_tensor(self, tensor):
-        return quantize_tensor(tensor, self.scale, self.zero_point, num_bits=self.num_bits)
+        return quantize_tensor(tensor, self.scale, self.zero_point, num_bits=self.num_bits, signed=self.signed)
 
     def dequantize_tensor(self, q_x):
         return dequantize_tensor(q_x, self.scale, self.zero_point)
@@ -57,17 +60,17 @@ class QParam(nn.Module):
         info = 'scale: %.10f ' % self.scale
         info += 'zero_point: %d ' % self.zero_point
         info += 'min: %.6f ' % self.min
-        info += 'max: %.6f' % self.max
+        info += 'max: %.6f ' % self.max
         return info
 
 
 class QModule(nn.Module):
-    def __init__(self, qi=True, qo=True, num_bits=8):
+    def __init__(self, qi=True, qo=True, num_bits=8, signed=True):
         super(QModule, self).__init__()
         if qi:
-            self.qi = QParam(num_bits=num_bits)
+            self.qi = QParam(num_bits=num_bits, signed=signed)
         if qo:
-            self.qo = QParam(num_bits=num_bits)
+            self.qo = QParam(num_bits=num_bits, signed=signed)
 
     def freeze(self):
         pass

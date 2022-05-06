@@ -7,12 +7,13 @@ from torchquanter.utils import quantize_tensor
 
 class QLinearReLU(QModule):
 
-    def __init__(self, fc_module: nn.Linear, qi=True, qo=True, num_bits=8):
-        super(QLinearReLU, self).__init__(qi=qi, qo=qo, num_bits=num_bits)
+    def __init__(self, fc_module: nn.Linear, qi=True, qo=True, num_bits=8, signed=True):
+        super(QLinearReLU, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
         self.num_bits = num_bits
+        self.signed = signed
         self.fc_module = fc_module
-        self.qw = QParam(num_bits=num_bits)
-        self.qb = QParam(num_bits=32)
+        self.qw = QParam(num_bits=num_bits, signed=signed)
+        # self.qb = QParam(num_bits=32)
 
     def forward(self, x):
         if hasattr(self, 'qi'):
@@ -59,5 +60,5 @@ class QLinearReLU(QModule):
         x = self.M * x
         x.round_() 
         x = x + self.qo.zero_point
-        x.clamp_(0., 2.**self.num_bits-1.).round_()
+        x.clamp_(self.qo.qmin, self.qo.qmax).round_()
         return x

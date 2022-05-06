@@ -75,8 +75,8 @@ if __name__ == "__main__":
 
     # 加载训练好的全精度模型
     # model = Model()
-    # model = ModelBN()
-    model = ModelLinear()
+    model = ModelBN()
+    # model = ModelLinear()
 
     state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)
     model.load_state_dict(state_dict)
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     # init
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
     num_bits = 8
-    model.quantize(num_bits=num_bits)
+    model.quantize(num_bits=num_bits, signed=True)
     print('Quantization bit: %d' % num_bits)
 
     # train
@@ -97,7 +97,7 @@ if __name__ == "__main__":
 
     # save qat model
     model.eval()
-    torch.save(model.state_dict(), os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'))
+    torch.save(model.state_dict(), os.path.join(save_model_dir, f'mnist_{model._get_name()}_qat.pth'))
 
     # fp32 -> int8/uint8
     model.freeze()

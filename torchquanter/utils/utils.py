@@ -1,13 +1,22 @@
 import torch
 import torch.nn as nn
 
-def calcScaleZeroPoint(min_val, max_val, num_bits=8):
+def get_qmin_qmax(num_bits, signed):
+    if signed:
+        qmin = - 2. ** (num_bits - 1)
+        qmax = 2. ** (num_bits - 1) - 1
+    else:
+        qmin = 0.
+        qmax = 2.**num_bits - 1.
+    return qmin, qmax
+
+def calcScaleZeroPoint(min_val, max_val, num_bits=8, signed=True):
     """
     calculate scale and zero point for quantization
     """
-    qmin = 0.
-    qmax = 2. ** num_bits - 1.
-    # HACK 这里scale最好和硬件保持一致，使用2的幂次，即可以用移位实现(参考一下CMSIS-NN)
+    qmin, qmax = get_qmin_qmax(num_bits, signed)
+
+    # TODO 这里scale最好和硬件保持一致，使用2的幂次，即可以用移位实现(参考一下CMSIS-NN)
     scale = (max_val - min_val) / (qmax - qmin) # S=(rmax-rmin)/(qmax-qmin)
 
     zero_point = qmax - max_val / scale    # Z=round(qmax-rmax/scale)
@@ -22,16 +31,11 @@ def calcScaleZeroPoint(min_val, max_val, num_bits=8):
 
     return scale, zero_point
 
-def quantize_tensor(x: torch.Tensor, scale, zero_point, num_bits=8, signed=False):
+def quantize_tensor(x: torch.Tensor, scale, zero_point, num_bits=8, signed=True):
     """
     use scale and zero_point to quantize tensor
     """
-    if signed:
-        qmin = - 2. ** (num_bits - 1)
-        qmax = 2. ** (num_bits - 1) - 1
-    else:
-        qmin = 0.
-        qmax = 2.**num_bits - 1.
+    qmin, qmax = get_qmin_qmax(num_bits, signed)
  
     q_x = zero_point + x / scale
     q_x.clamp_(qmin, qmax).round_()     # q=round(clip(r/S+Z))

@@ -23,14 +23,14 @@ class Model(nn.Module):
         x = self.fc(x)
         return x
 
-    def quantize(self, num_bits=8):
-        self.qconv1 = QConv2d(self.block[0], qi=True, qo=True, num_bits=num_bits)
-        self.qrelu1 = QReLU(qi=False)
-        self.qmaxpool1 = QMaxPool2d(self.block[2], qi=False)
-        self.qconv2 = QConv2d(self.block[3], qi=False, qo=True, num_bits=num_bits)
-        self.qrelu2 = QReLU(qi=False)
-        self.qmaxpool2 = QMaxPool2d(self.block[5], qi=False)
-        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits)
+    def quantize(self, num_bits=8, signed=True):
+        self.qconv1 = QConv2d(self.block[0], qi=True, qo=True, num_bits=num_bits, signed=signed)
+        self.qrelu1 = QReLU(qi=False, signed=signed)
+        self.qmaxpool1 = QMaxPool2d(self.block[2], qi=False, signed=signed)
+        self.qconv2 = QConv2d(self.block[3], qi=False, qo=True, num_bits=num_bits, signed=signed)
+        self.qrelu2 = QReLU(qi=False, signed=signed)
+        self.qmaxpool2 = QMaxPool2d(self.block[5], qi=False, signed=signed)
+        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits, signed=signed)
 
     def quantize_forward(self, x):
         """
@@ -96,12 +96,12 @@ class ModelBN(nn.Module):
         x = self.fc(x)
         return x
 
-    def quantize(self, num_bits=8):
-        self.qconv1 = QConvBNReLU(self.block[0], self.block[1], qi=True, qo=True, num_bits=num_bits)
-        self.qmaxpool1 = QMaxPool2d(self.block[3])
-        self.qconv2 = QConvBNReLU(self.block[4], self.block[5], qi=False, qo=True, num_bits=num_bits)
-        self.qmaxpool2 = QMaxPool2d(self.block[7])
-        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits)
+    def quantize(self, num_bits=8, signed=True):
+        self.qconv1 = QConvBNReLU(self.block[0], self.block[1], qi=True, qo=True, num_bits=num_bits, signed=signed)
+        self.qmaxpool1 = QMaxPool2d(self.block[3], signed=signed)
+        self.qconv2 = QConvBNReLU(self.block[4], self.block[5], qi=False, qo=True, num_bits=num_bits, signed=signed)
+        self.qmaxpool2 = QMaxPool2d(self.block[7], signed=signed)
+        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits, signed=signed)
 
     def quantize_forward(self, x):
         x = self.qconv1(x)
@@ -148,10 +148,10 @@ class ModelLinear(nn.Module):
         x = self.linear3(x)
         return x
 
-    def quantize(self, num_bits=8):
-        self.qlinear1 = QLinearReLU(self.linear1)
-        self.qlinear2 = QLinearReLU(self.linear2, qi=False)
-        self.qlinear3 = QLinear(self.linear3, qi=False)
+    def quantize(self, num_bits=8, signed=True):
+        self.qlinear1 = QLinearReLU(self.linear1, signed=signed)
+        self.qlinear2 = QLinearReLU(self.linear2, qi=False, signed=signed)
+        self.qlinear3 = QLinear(self.linear3, qi=False, signed=signed)
 
     def quantize_forward(self, x):
         x = x.view(-1, 28*28)

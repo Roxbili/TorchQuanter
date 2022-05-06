@@ -77,8 +77,8 @@ if __name__ == "__main__":
 
     # choose model
     # model = Model()
-    # model = ModelBN()
-    model = ModelLinear()
+    model = ModelBN()
+    # model = ModelLinear()
 
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 

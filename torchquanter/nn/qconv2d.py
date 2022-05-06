@@ -7,11 +7,12 @@ from torchquanter.utils import quantize_tensor
 
 class QConv2d(QModule):
 
-    def __init__(self, conv_module: nn.Conv2d, qi=True, qo=True, num_bits=8):
-        super(QConv2d, self).__init__(qi=qi, qo=qo, num_bits=num_bits)
+    def __init__(self, conv_module: nn.Conv2d, qi=True, qo=True, num_bits=8, signed=True):
+        super(QConv2d, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
         self.num_bits = num_bits
+        self.signed = signed
         self.conv_module = conv_module
-        self.qw = QParam(num_bits=num_bits)
+        self.qw = QParam(num_bits=num_bits, signed=signed)
 
     def freeze(self, qi=None, qo=None):
         
@@ -63,5 +64,5 @@ class QConv2d(QModule):
         x = self.M * x
         x.round_() 
         x = x + self.qo.zero_point        
-        x.clamp_(0., 2.**self.num_bits-1.).round_()
+        x.clamp_(self.qo.qmin, self.qo.qmax).round_()
         return x
