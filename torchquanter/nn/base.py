@@ -8,10 +8,11 @@ class QParam(nn.Module):
     """
     Quantization parameters recorder
     """
-    def __init__(self, num_bits=8, signed=True):
+    def __init__(self, num_bits=8, signed=True, symmetric=False):
         super(QParam, self).__init__()
         self.num_bits = num_bits
         self.signed = signed
+        self.symmetric = symmetric
         self.qmin, self.qmax = get_qmin_qmax(num_bits, signed)
 
         scale = torch.tensor([], requires_grad=False)
@@ -38,6 +39,10 @@ class QParam(nn.Module):
             self.min.data = tensor.min().data
         self.min.clamp_(max=0)
         
+        if self.symmetric:  # symmetric quantization
+            self.max.data = max(self.max.abs().data, self.min.abs().data)
+            self.min.data = -self.max.data
+        
         self.scale, self.zero_point = calcScaleZeroPoint(self.min, self.max, self.num_bits, signed=self.signed)
     
     def quantize_tensor(self, tensor):
@@ -57,20 +62,20 @@ class QParam(nn.Module):
             state_dict.pop(prefix + key)
 
     def __str__(self):
-        info = 'scale: %.10f ' % self.scale
-        info += 'zero_point: %d ' % self.zero_point
-        info += 'min: %.6f ' % self.min
-        info += 'max: %.6f ' % self.max
+        info = 'scale: %.10f  ' % self.scale
+        info += 'zero_point: %d  ' % self.zero_point
+        info += 'min: %.6f  ' % self.min
+        info += 'max: %.6f  ' % self.max
         return info
 
 
 class QModule(nn.Module):
-    def __init__(self, qi=True, qo=True, num_bits=8, signed=True):
+    def __init__(self, qi=True, qo=True, num_bits=8, signed=True, symmetric=False):
         super(QModule, self).__init__()
         if qi:
-            self.qi = QParam(num_bits=num_bits, signed=signed)
+            self.qi = QParam(num_bits=num_bits, signed=signed, symmetric=symmetric)
         if qo:
-            self.qo = QParam(num_bits=num_bits, signed=signed)
+            self.qo = QParam(num_bits=num_bits, signed=signed, symmetric=symmetric)
 
     def freeze(self):
         pass

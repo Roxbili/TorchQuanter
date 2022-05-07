@@ -8,13 +8,14 @@ from torchquanter.utils import quantize_tensor
 
 class QConvBNReLU(QModule):
 
-    def __init__(self, conv_module: nn.Conv2d, bn_module: nn.BatchNorm2d, qi=True, qo=True, num_bits=8, signed=True):
+    def __init__(self, conv_module: nn.Conv2d, bn_module: nn.BatchNorm2d, qi=True, qo=True, 
+                 num_bits=8, signed=True, symmetric_weight=True):
         super(QConvBNReLU, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
         self.num_bits = num_bits
         self.signed = signed
         self.conv_module = conv_module
         self.bn_module = bn_module
-        self.qw = QParam(num_bits=num_bits, signed=signed)
+        self.qw = QParam(num_bits=num_bits, signed=signed, symmetric=symmetric_weight)
         # self.qb = QParam(num_bits=32, signed=signed)
 
     def fold_bn(self, mean, std):
