@@ -14,6 +14,8 @@ class QParam(nn.Module):
         self.signed = signed
         self.symmetric = symmetric
         self.qmin, self.qmax = get_qmin_qmax(num_bits, signed)
+        assert not (signed == False and symmetric == True), \
+            'Only support symmetirc quantization with signed quantization parameters.'
 
         scale = torch.tensor([], requires_grad=False)
         zero_point = torch.tensor([], requires_grad=False)
