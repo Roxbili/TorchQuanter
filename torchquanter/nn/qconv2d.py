@@ -2,18 +2,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .base import QModule, QParam, FakeQuantize
-from torchquanter.utils import quantize_tensor
+from .base import QModule, QParamW, FakeQuantize
+from torchquanter.utils import quantize_tensor, broadcast_dim_as
 
 class QConv2d(QModule):
 
     def __init__(self, conv_module: nn.Conv2d, qi=True, qo=True, num_bits=8, 
-                 signed=True, symmetric_weight=True):
+                 signed=True, symmetric_weight=True, qmode='per_channel'):
         super(QConv2d, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
         self.num_bits = num_bits
         self.signed = signed
         self.conv_module = conv_module
-        self.qw = QParam(num_bits=num_bits, signed=signed, symmetric=symmetric_weight)
+        self.qw = QParamW(num_bits=num_bits, signed=signed, symmetric=symmetric_weight, qmode=qmode)
 
     def freeze(self, qi=None, qo=None):
         
@@ -34,7 +34,7 @@ class QConv2d(QModule):
         self.M = self.qw.scale * self.qi.scale / self.qo.scale
 
         self.conv_module.weight.data = self.qw.quantize_tensor(self.conv_module.weight.data)
-        self.conv_module.weight.data = self.conv_module.weight.data - self.qw.zero_point    # 这样减法后可能无法保证范围在 8bit 内
+        self.conv_module.weight.data = self.conv_module.weight.data - self.qw.zero_point.view(-1,1,1,1)    # 这样减法后可能无法保证范围在 8bit 内
 
         self.conv_module.bias.data = quantize_tensor(self.conv_module.bias.data, scale=self.qi.scale * self.qw.scale,
                                                      zero_point=0, num_bits=32, signed=True)
@@ -62,7 +62,7 @@ class QConv2d(QModule):
     def quantize_inference(self, x):
         x = x - self.qi.zero_point
         x = self.conv_module(x)
-        x = self.M * x
+        x = broadcast_dim_as(self.M, x, dim=1) * x
         x.round_() 
         x = x + self.qo.zero_point        
         x.clamp_(self.qo.qmin, self.qo.qmax).round_()

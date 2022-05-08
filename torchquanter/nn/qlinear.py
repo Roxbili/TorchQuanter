@@ -2,18 +2,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .base import QModule, QParam, FakeQuantize
+from .base import QModule, QParamW, FakeQuantize
 from torchquanter.utils import quantize_tensor
 
 class QLinear(QModule):
 
     def __init__(self, fc_module: nn.Linear, qi=True, qo=True, num_bits=8,
-                 signed=True, symmetric_weight=True):
+                 signed=True, symmetric_weight=True, qmode='per_channel'):
         super(QLinear, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
         self.num_bits = num_bits
         self.signed = signed
         self.fc_module = fc_module
-        self.qw = QParam(num_bits=num_bits, signed=signed, symmetric=symmetric_weight)
+        self.qw = QParamW(num_bits=num_bits, signed=signed, symmetric=symmetric_weight, qmode=qmode)
 
     def freeze(self, qi=None, qo=None):
 
@@ -34,7 +34,7 @@ class QLinear(QModule):
         self.M = self.qw.scale * self.qi.scale / self.qo.scale
 
         self.fc_module.weight.data = self.qw.quantize_tensor(self.fc_module.weight.data)
-        self.fc_module.weight.data = self.fc_module.weight.data - self.qw.zero_point
+        self.fc_module.weight.data = self.fc_module.weight.data - self.qw.zero_point.view(-1,1)
 
         self.fc_module.bias.data = quantize_tensor(self.fc_module.bias.data, scale=self.qi.scale * self.qw.scale,
                                                    zero_point=0, num_bits=32, signed=True)

@@ -3,19 +3,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from .base import QModule, QParam, FakeQuantize
-from torchquanter.utils import quantize_tensor
+from .base import QModule, QParamW, FakeQuantize
+from torchquanter.utils import quantize_tensor, broadcast_dim_as
 
 class QConvBNReLU(QModule):
 
     def __init__(self, conv_module: nn.Conv2d, bn_module: nn.BatchNorm2d, qi=True, qo=True, 
-                 num_bits=8, signed=True, symmetric_weight=True):
+                 num_bits=8, signed=True, symmetric_weight=True, qmode='per_channel'):
         super(QConvBNReLU, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
         self.num_bits = num_bits
         self.signed = signed
         self.conv_module = conv_module
         self.bn_module = bn_module
-        self.qw = QParam(num_bits=num_bits, signed=signed, symmetric=symmetric_weight)
+        self.qw = QParamW(num_bits=num_bits, signed=signed, symmetric=symmetric_weight, qmode=qmode)
         # self.qb = QParam(num_bits=32, signed=signed)
 
     def fold_bn(self, mean, std):
@@ -102,7 +102,7 @@ class QConvBNReLU(QModule):
 
         weight, bias = self.fold_bn(self.bn_module.running_mean, std)
         self.conv_module.weight.data = self.qw.quantize_tensor(weight.data)
-        self.conv_module.weight.data = self.conv_module.weight.data - self.qw.zero_point
+        self.conv_module.weight.data = self.conv_module.weight.data - self.qw.zero_point.view(-1,1,1,1)
 
         self.conv_module.bias.data = quantize_tensor(bias, scale=self.qi.scale * self.qw.scale,
                                                      zero_point=0, num_bits=32, signed=True)
@@ -110,7 +110,7 @@ class QConvBNReLU(QModule):
     def quantize_inference(self, x):
         x = x - self.qi.zero_point
         x = self.conv_module(x)
-        x = self.M * x
+        x = broadcast_dim_as(self.M, x, dim=1) * x
         x.round_() 
         x = x + self.qo.zero_point
         x.clamp_(self.qo.qmin, self.qo.qmax).round_()
