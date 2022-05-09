@@ -20,10 +20,19 @@ qmode:
         * support op: Conv, Depthwise-conv
 ```
 
+## Support operations
+```
+Conv2d, Conv2d + BatchNorm2d + ReLU
+Linear, Linear + ReLU
+ReLU
+MaxPool2d
+```
+
 ## TODO
 - [x] 量化框架Linear、ReLU融合
 - [x] 量化框架uint8和int8之间可选
 - [x] 是否对称量化可选
 - [x] per-tensor 和 per-channel之间可选
-- [ ] 量化框架scale修改实现，使用multiplier和shift
-- [ ] pytorch 量化使用
+- [x] 量化框架scale修改实现，使用multiplier和shift
+- [ ] 支持shortcut
+- [ ] 支持transformer encoder

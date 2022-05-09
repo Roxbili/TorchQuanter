@@ -58,19 +58,19 @@ class Model(nn.Module):
         self.qmaxpool2.freeze(self.qconv2.qo)
         self.qfc.freeze(self.qconv2.qo)
 
-    def quantize_inference(self, x):
+    def quantize_inference(self, x, mode='cmsis_nn'):
         """
         真正的量化推理，使用int8
         """
         qx = self.qconv1.qi.quantize_tensor(x)
-        qx = self.qconv1.quantize_inference(qx)
+        qx = self.qconv1.quantize_inference(qx, mode=mode)
         qx = self.qrelu1.quantize_inference(qx)
         qx = self.qmaxpool1.quantize_inference(qx)
-        qx = self.qconv2.quantize_inference(qx)
+        qx = self.qconv2.quantize_inference(qx, mode=mode)
         qx = self.qrelu2.quantize_inference(qx)
         qx = self.qmaxpool2.quantize_inference(qx)
         qx = qx.view(-1, 5 * 5 * 64)
-        qx = self.qfc.quantize_inference(qx)
+        qx = self.qfc.quantize_inference(qx, mode=mode)
         out = self.qfc.qo.dequantize_tensor(qx)
         return out
 
@@ -119,14 +119,14 @@ class ModelBN(nn.Module):
         self.qmaxpool2.freeze(qi=self.qconv2.qo)
         self.qfc.freeze(qi=self.qconv2.qo)
 
-    def quantize_inference(self, x):
+    def quantize_inference(self, x, mode='cmsis_nn'):
         qx = self.qconv1.qi.quantize_tensor(x)
-        qx = self.qconv1.quantize_inference(qx)
+        qx = self.qconv1.quantize_inference(qx, mode=mode)
         qx = self.qmaxpool1.quantize_inference(qx)
-        qx = self.qconv2.quantize_inference(qx)
+        qx = self.qconv2.quantize_inference(qx, mode=mode)
         qx = self.qmaxpool2.quantize_inference(qx)
         qx = qx.view(-1, 5 * 5 * 64)
-        qx = self.qfc.quantize_inference(qx)
+        qx = self.qfc.quantize_inference(qx, mode=mode)
         out = self.qfc.qo.dequantize_tensor(qx)
         return out
 
@@ -165,12 +165,12 @@ class ModelLinear(nn.Module):
         self.qlinear2.freeze(qi=self.qlinear1.qo)
         self.qlinear3.freeze(qi=self.qlinear2.qo)
 
-    def quantize_inference(self, x):
+    def quantize_inference(self, x, mode='cmsis_nn'):
         x = x.view(-1, 28*28)
         qx = self.qlinear1.qi.quantize_tensor(x)
-        qx = self.qlinear1.quantize_inference(qx)
-        qx = self.qlinear2.quantize_inference(qx)
-        qx = self.qlinear3.quantize_inference(qx)
+        qx = self.qlinear1.quantize_inference(qx, mode=mode)
+        qx = self.qlinear2.quantize_inference(qx, mode=mode)
+        qx = self.qlinear3.quantize_inference(qx, mode=mode)
         out = self.qlinear3.qo.dequantize_tensor(qx)
         return out
 

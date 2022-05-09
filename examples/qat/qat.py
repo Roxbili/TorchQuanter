@@ -32,7 +32,7 @@ def full_inference(model, test_loader):
         output = model(data)
         pred = output.argmax(dim=1, keepdim=True)
         correct += pred.eq(target.view_as(pred)).sum().item()
-    print('\nTest set: Full Model Accuracy: {:.0f}%\n'.format(100. * correct / len(test_loader.dataset)))
+    print('\nTest set: Full Model Accuracy: {:.2f}%\n'.format(100. * correct / len(test_loader.dataset)))
 
 
 def quantize_inference(model, test_loader):
@@ -42,7 +42,7 @@ def quantize_inference(model, test_loader):
         output = model.quantize_inference(data)
         pred = output.argmax(dim=1, keepdim=True)
         correct += pred.eq(target.view_as(pred)).sum().item()
-    print('\nTest set: Quant Model Accuracy: {:.0f}%\n'.format(100. * correct / len(test_loader.dataset)))
+    print('\nTest set: Quant Model Accuracy: {:.2f}%\n'.format(100. * correct / len(test_loader.dataset)))
 
 
 if __name__ == "__main__":

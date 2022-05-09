@@ -72,3 +72,26 @@ def broadcast_dim_as(tensor: torch.Tensor, x: torch.Tensor, dim=0):
     assert tensor.dim() <= 1, 'tensor dimension must be 0 or 1'
     dims = [1 if i != dim else -1 for i in range(x.dim())]
     return tensor.view(dims)
+
+def approximate_float(M):
+    """
+    approximate float with multiplier and shift.
+    ```
+    float = multiplier / 2^(31 - shift)
+    float = multiplier >> (31 - shift)
+    ```
+
+    Args
+    ----------
+    M: float number
+
+    Return
+    ----------
+    multiplier: torch.float32(real: int32)
+    shift: torch.int32(real: int8)
+    """
+    significand, shift = torch.frexp(M)
+    significand_q31 = torch.round(significand * (1 << 31))
+
+    # to torch tensor
+    return significand_q31, shift

@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 from .base import QModule, QParamW, FakeQuantize
-from torchquanter.utils import quantize_tensor, broadcast_dim_as
+from torchquanter.utils import quantize_tensor, broadcast_dim_as, approximate_float
 
 class QConvBNReLU(QModule):
 
@@ -107,11 +107,17 @@ class QConvBNReLU(QModule):
         self.conv_module.bias.data = quantize_tensor(bias, scale=self.qi.scale * self.qw.scale,
                                                      zero_point=0, num_bits=32, signed=True)
 
-    def quantize_inference(self, x):
+    def quantize_inference(self, x, mode=None):
         x = x - self.qi.zero_point
         x = self.conv_module(x)
-        x = broadcast_dim_as(self.M, x, dim=1) * x
-        x.round_() 
+        if mode is None:
+            x = broadcast_dim_as(self.M, x, dim=1) * x
+            x.round_() 
+        elif mode == 'cmsis_nn':
+            multiplier, shift = approximate_float(self.M)
+            x = (x * broadcast_dim_as(multiplier, x, dim=1)) >> (31 - broadcast_dim_as(shift, x, dim=1))
+        else:
+            raise Exception(f'Unknown mode {mode}')
         x = x + self.qo.zero_point
         x.clamp_(self.qo.qmin, self.qo.qmax).round_()
         return x

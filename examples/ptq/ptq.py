@@ -15,7 +15,7 @@ def full_inference(model, test_loader):
         output = model(data)
         pred = output.argmax(dim=1, keepdim=True)
         correct += pred.eq(target.view_as(pred)).sum().item()
-    print('\nTest set: Full Model Accuracy: {:.0f}%\n'.format(100. * correct / len(test_loader.dataset)))
+    print('\nTest set: Full Model Accuracy: {:.2f}%\n'.format(100. * correct / len(test_loader.dataset)))
 
 def quantize(model: Model, loader):
     for i, (data, target) in enumerate(loader, 1):
@@ -30,7 +30,7 @@ def quantize_inference(model, test_loader):
         output = model.quantize_inference(data)
         pred = output.argmax(dim=1, keepdim=True)
         correct += pred.eq(target.view_as(pred)).sum().item()
-    print('\nTest set: Quant Model Accuracy: {:.0f}%\n'.format(100. * correct / len(test_loader.dataset)))
+    print('\nTest set: Quant Model Accuracy: {:.2f}%\n'.format(100. * correct / len(test_loader.dataset)))
 
 if __name__ == "__main__":
     # parameters
@@ -50,9 +50,9 @@ if __name__ == "__main__":
     )
 
     # 加载模型
-    # model = Model()
+    model = Model()
     # model = ModelBN()
-    model = ModelLinear()
+    # model = ModelLinear()
 
     state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)
     model.load_state_dict(state_dict)

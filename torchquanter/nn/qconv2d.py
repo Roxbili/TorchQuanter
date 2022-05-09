@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .base import QModule, QParamW, FakeQuantize
-from torchquanter.utils import quantize_tensor, broadcast_dim_as
+from torchquanter.utils import quantize_tensor, broadcast_dim_as, approximate_float
 
 class QConv2d(QModule):
 
@@ -59,11 +59,17 @@ class QConv2d(QModule):
 
         return x
       
-    def quantize_inference(self, x):
+    def quantize_inference(self, x, mode=None):
         x = x - self.qi.zero_point
         x = self.conv_module(x)
-        x = broadcast_dim_as(self.M, x, dim=1) * x
-        x.round_() 
+        if mode is None:
+            x = broadcast_dim_as(self.M, x, dim=1) * x
+            x.round_() 
+        elif mode == 'cmsis_nn':
+            multiplier, shift = approximate_float(self.M)
+            x = (x * broadcast_dim_as(multiplier, x, dim=1)) >> (31 - broadcast_dim_as(shift, x, dim=1))
+        else:
+            raise Exception(f'Unknown mode {mode}')
         x = x + self.qo.zero_point        
         x.clamp_(self.qo.qmin, self.qo.qmax).round_()
         return x

@@ -188,7 +188,13 @@ class QModule(nn.Module):
     def freeze(self):
         pass
 
-    def quantize_inference(self, x):
+    def quantize_inference(self, x, mode=None):
+        """
+        Args
+        ----------
+        x: float
+        mode: None or cmsis_nn. Inference mode, None means use float multiplying. default None.
+        """
         raise NotImplementedError('quantize_inference should be implemented.')
 
 
