@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-from models.model import Model, ModelBN, ModelLinear
+from models.model import Model, ModelBN, ModelLinear, ModelShortCut
 
 def train_one_epoch(model, device, train_loader, optimizer, epoch):
     model.train()
@@ -39,7 +39,7 @@ def validate(model: nn.Module, device, test_loader):
     
     test_loss /= len(test_loader.dataset)
 
-    print('\nTest set: Average loss: {:.4f}, Accuracy: {:.0f}%\n'.format(
+    print('\nTest set: Average loss: {:.4f}, Accuracy: {:.2f}%\n'.format(
         test_loss, 100. * correct / len(test_loader.dataset)
     ))
 
@@ -77,8 +77,9 @@ if __name__ == "__main__":
 
     # choose model
     # model = Model()
-    model = ModelBN()
+    # model = ModelBN()
     # model = ModelLinear()
+    model = ModelShortCut()
 
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 

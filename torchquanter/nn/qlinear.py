@@ -8,7 +8,7 @@ from torchquanter.utils import quantize_tensor, approximate_float
 class QLinear(QModule):
 
     def __init__(self, fc_module: nn.Linear, qi=True, qo=True, num_bits=8,
-                 signed=True, symmetric_weight=True, qmode='per_channel'):
+                 signed=True, symmetric_weight=True, qmode='per_tensor'):
         super(QLinear, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
         self.num_bits = num_bits
         self.signed = signed

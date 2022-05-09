@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torchquanter.nn import QConv2d, QMaxPool2d, QReLU, QLinear, QConvBNReLU, QLinearReLU
+from torchquanter.nn import QConv2d, QMaxPool2d, QReLU, QLinear, QConvBNReLU, QLinearReLU, QAdd
 
 class Model(nn.Module):
     def __init__(self):
@@ -174,6 +174,66 @@ class ModelLinear(nn.Module):
         out = self.qlinear3.qo.dequantize_tensor(qx)
         return out
 
+class ModelShortCut(nn.Module):
+    def __init__(self):
+        super(ModelShortCut, self).__init__()
+        self.block1 = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=3, stride=2),
+            nn.BatchNorm2d(32),
+            nn.ReLU()
+        )
+        self.block2 = nn.Sequential(
+            nn.Conv2d(32, 32, kernel_size=3, padding=1, stride=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU()
+        )
+        self.maxpool = nn.MaxPool2d(2)
+        self.linear = nn.Linear(32*6*6, 10)
+    
+    def forward(self, x):
+        x = self.block1(x)
+        x = self.block2(x) + x
+        x = self.maxpool(x)
+        x = x.view(-1, 32*6*6)
+        x = self.linear(x)
+        return x
+
+    def quantize(self, num_bits=8, signed=True):
+        self.qconv1 = QConvBNReLU(self.block1[0], self.block1[1], qi=True, qo=True,
+                num_bits=num_bits, signed=signed, qmode='per_channel')
+        self.qconv2 = QConvBNReLU(self.block2[0], self.block2[1], qi=False, qo=True,
+                num_bits=num_bits, signed=signed, qmode='per_channel')
+        self.qadd = QAdd(qo=True, num_bits=num_bits, signed=signed)
+        self.qmaxpool = QMaxPool2d(self.maxpool, num_bits=num_bits, signed=signed)
+        self.qfc = QLinear(self.linear, qi=False, qo=True, num_bits=num_bits, signed=signed, qmode='per_tensor')
+
+    def quantize_forward(self, x):
+        x = self.qconv1(x)
+        x_ = self.qconv2(x)
+        x = self.qadd(x_, x)
+        x = self.qmaxpool(x)
+        x = x.view(-1, 32*6*6)
+        x = self.qfc(x)
+        return x
+
+    def freeze(self):
+        self.qconv1.freeze()
+        self.qconv2.freeze(qi=self.qconv1.qo)
+        self.qadd.freeze(qi1=self.qconv2.qo, qi2=self.qconv2.qi)
+        self.qmaxpool.freeze(qi=self.qadd.qo)
+        self.qfc.freeze(qi=self.qadd.qo)
+
+    def quantize_inference(self, x, mode='cmsis_nn'):
+        qx = self.qconv1.qi.quantize_tensor(x)
+        qx = self.qconv1.quantize_inference(qx, mode=mode)
+        qx_ = self.qconv2.quantize_inference(qx, mode=mode)
+        qx = self.qadd.quantize_inference(qx_, qx, mode=mode)
+        qx = self.qmaxpool.quantize_inference(qx)
+        qx = qx.view(-1, 32*6*6)
+        qx = self.qfc.quantize_inference(qx, mode=mode)
+        out = self.qfc.qo.dequantize_tensor(qx)
+        return out
+    
 
 if __name__ == '__main__':
     input_data = torch.rand(1, 28, 28, dtype=torch.float32)
