@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torchquanter.nn import QConv2d, QMaxPool2d, QReLU, QLinear, QConvBNReLU, QLinearReLU, QAdd
+from torchquanter.nn import QConv2d, QMaxPool2d, QReLU, QLinear, QConvBNReLU, QLinearReLU, QAdd, QLayerNorm
 
 class Model(nn.Module):
     def __init__(self):
@@ -230,6 +230,70 @@ class ModelShortCut(nn.Module):
         qx = self.qadd.quantize_inference(qx_, qx, mode=mode)
         qx = self.qmaxpool.quantize_inference(qx)
         qx = qx.view(-1, 32*6*6)
+        qx = self.qfc.quantize_inference(qx, mode=mode)
+        out = self.qfc.qo.dequantize_tensor(qx)
+        return out
+    
+class ModelLayerNorm(nn.Module):
+    def __init__(self):
+        super(ModelLayerNorm, self).__init__()
+        self.block1 = nn.Sequential(
+            nn.Linear(784, 128),
+            nn.LayerNorm(128),
+            nn.ReLU()
+        )
+        self.block2 = nn.Sequential(
+            nn.Linear(128, 64),
+            nn.LayerNorm(64),
+            nn.ReLU()
+        )
+        self.linear = nn.Linear(64, 10)
+
+    def forward(self, x):
+        x = x.view(-1, 28*28)
+        x = self.block1(x)
+        x = self.block2(x)
+        x = self.linear(x)
+        return x
+
+    def quantize(self, num_bits=8, signed=True):
+        self.qlinear1 = QLinear(self.block1[0], qi=True, qo=True, num_bits=num_bits, signed=signed, qmode='per_tensor')
+        self.qlayernorm1 = QLayerNorm(self.block1[1], qi=False, num_bits=num_bits, signed=signed)
+        self.qrelu1 = QReLU(num_bits=num_bits, signed=signed)
+        self.qlinear2 = QLinear(self.block2[0], qi=False, qo=True, num_bits=num_bits, signed=signed, qmode='per_tensor')
+        self.qlayernorm2 = QLayerNorm(self.block2[1], qi=False, num_bits=num_bits, signed=signed)
+        self.qrelu2 = QReLU(num_bits=num_bits, signed=signed)
+        self.qfc = QLinear(self.linear, qi=False, qo=True, num_bits=num_bits, signed=signed, qmode='per_channel')
+
+    def quantize_forward(self, x):
+        x = x.view(-1, 28*28)
+        x = self.qlinear1(x)
+        x = self.qlayernorm1(x)
+        x = self.qrelu1(x)
+        x = self.qlinear2(x)
+        x = self.qlayernorm2(x)
+        x = self.qrelu2(x)
+        x = self.qfc(x)
+        return x
+
+    def freeze(self):
+        self.qlinear1.freeze()
+        self.qlayernorm1.freeze(qi=self.qlinear1.qo)
+        self.qrelu1.freeze(qi=self.qlayernorm1.qo)
+        self.qlinear2.freeze(qi=self.qlayernorm1.qo)
+        self.qlayernorm2.freeze(qi=self.qlinear2.qo)
+        self.qrelu2.freeze(qi=self.qlayernorm2.qo)
+        self.qfc.freeze(qi=self.qlayernorm2.qo)
+    
+    def quantize_inference(self, x, mode='cmsis_nn'):
+        x = x.view(-1, 28*28)
+        qx = self.qlinear1.qi.quantize_tensor(x)
+        qx = self.qlinear1.quantize_inference(qx, mode=mode)
+        qx = self.qlayernorm1.quantize_inference(qx, mode=mode)
+        qx = self.qrelu1.quantize_inference(qx)
+        qx = self.qlinear2.quantize_inference(qx, mode=mode)
+        qx = self.qlayernorm2.quantize_inference(qx, mode=mode)
+        qx = self.qrelu2.quantize_inference(qx)
         qx = self.qfc.quantize_inference(qx, mode=mode)
         out = self.qfc.qo.dequantize_tensor(qx)
         return out

@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-from models.model import Model, ModelBN, ModelLinear, ModelShortCut
+from models.model import Model, ModelBN, ModelLinear, ModelShortCut, ModelLayerNorm
 
 
 def quantize_aware_training(model: Model, device, train_loader, optimizer, epoch):
@@ -77,7 +77,8 @@ if __name__ == "__main__":
     # model = Model()
     # model = ModelBN()
     # model = ModelLinear()
-    model = ModelShortCut()
+    # model = ModelShortCut()
+    model = ModelLayerNorm()
 
     state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)
     model.load_state_dict(state_dict)

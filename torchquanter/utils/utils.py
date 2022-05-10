@@ -95,3 +95,26 @@ def approximate_float(M):
 
     # to torch tensor
     return significand_q31, shift
+
+def sqrt_interger(tensor: torch.Tensor, keepdim=False):
+    """
+    Newton’s method to find root of a number, which is the element of tensor
+    """
+    tensor.round_() # make sure the element of tensor is interger
+    assert tensor.dim() == 1 or tensor.dim() == 2
+
+    std_ = torch.ones(tensor.flatten().shape, dtype=tensor.dtype, device=tensor.device)
+    for i, n in enumerate(tensor.flatten()):
+        x = n   # Assuming the sqrt of n as n only
+        count = 0
+        while (1) :
+            count += 1
+            root = ((x + (n / x).floor()) >> 1).floor()   # Calculate more closed x
+            if root >= x:   # Check for closeness
+                std_[i] = x
+                break
+            x = root    # Update root
+
+    if keepdim:
+        std_ = std_.view_as(tensor)
+    return std_

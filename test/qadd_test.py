@@ -52,7 +52,8 @@ def test_qadd1():
     model.freeze()
 
     qout_float = model.quantize_inference(data).flatten()
-    assert (out - qout_float).abs().mean() < 1
+    err = (out - qout_float).abs().mean()
+    assert err < 0.1, f'err: {err}'
 
 def test_qadd2():
     data = torch.rand(1,1,28,28)
@@ -66,7 +67,8 @@ def test_qadd2():
     model.freeze()
 
     qout_float = model.quantize_inference(data).flatten()
-    assert (out - qout_float).abs().mean() < 1
+    err = (out - qout_float).abs().mean()
+    assert err < 0.1, f'err: {err}'
 
 
 if __name__ == '__main__':

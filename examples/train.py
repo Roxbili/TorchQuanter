@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-from models.model import Model, ModelBN, ModelLinear, ModelShortCut
+from models.model import Model, ModelBN, ModelLinear, ModelShortCut, ModelLayerNorm
 
 def train_one_epoch(model, device, train_loader, optimizer, epoch):
     model.train()
@@ -79,7 +79,8 @@ if __name__ == "__main__":
     # model = Model()
     # model = ModelBN()
     # model = ModelLinear()
-    model = ModelShortCut()
+    # model = ModelShortCut()
+    model = ModelLayerNorm()
 
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 

@@ -34,7 +34,7 @@ MaxPool2d
 - [x] 是否对称量化可选
 - [x] per-tensor 和 per-channel之间可选
 - [x] 量化框架scale修改实现，使用multiplier和shift
-- [ ] 支持add
+- [x] 支持add
 - [ ] 支持layernorm
 - [ ] 支持softmax
 - [ ] 支持transformer encoder
