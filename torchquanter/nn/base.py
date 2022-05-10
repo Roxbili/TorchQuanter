@@ -209,3 +209,56 @@ class FakeQuantize(Function):
     @staticmethod
     def backward(ctx, grad_output):
         return grad_output, None
+
+class QuantizeTensor(Function):
+
+    @staticmethod
+    def forward(ctx, x, qparam: QParam):
+        qx = qparam.quantize_tensor(x)
+        return qx
+    
+    def backward(ctx, grad_output):
+        return grad_output, None
+
+class DequantizeTensor(Function):
+
+    @staticmethod
+    def forward(ctx, qx, qparam: QParam):
+        x = qparam.dequantize_tensor(qx)
+        return x
+    
+    def backward(ctx, grad_output):
+        return grad_output, None
+
+class FloorSTE(Function):
+    """
+    Straight-through Estimator(STE) for torch.floor()
+    """
+
+    @staticmethod
+    def forward(ctx, x):
+        return torch.floor(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return grad_output.clone()
+
+class RoundSTE(Function):
+
+    @staticmethod
+    def forward(ctx, x):
+        return torch.round(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return grad_output.clone()
+
+class ClampSTE(Function):
+
+    @staticmethod
+    def forward(ctx, x, qparam: QParam):
+        return torch.clamp(x, qparam.qmin, qparam.qmax)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return grad_output, None

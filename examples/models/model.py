@@ -268,10 +268,10 @@ class ModelLayerNorm(nn.Module):
     def quantize_forward(self, x):
         x = x.view(-1, 28*28)
         x = self.qlinear1(x)
-        x = self.qlayernorm1(x)
+        x = self.qlayernorm1(x, self.qlinear1.qo)
         x = self.qrelu1(x)
         x = self.qlinear2(x)
-        x = self.qlayernorm2(x)
+        x = self.qlayernorm2(x, self.qlinear2.qo)
         x = self.qrelu2(x)
         x = self.qfc(x)
         return x

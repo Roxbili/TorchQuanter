@@ -6,7 +6,7 @@ from torchquanter.utils import quantize_tensor
 class QReLU(QModule):
 
     def __init__(self, qi=False, num_bits=8, signed=True):
-        super(QReLU, self).__init__(qi=qi, num_bits=num_bits, signed=signed)
+        super(QReLU, self).__init__(qi=qi, qo=False, num_bits=num_bits, signed=signed)
 
     def freeze(self, qi=None):
         
