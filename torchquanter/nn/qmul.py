@@ -5,10 +5,13 @@ import torch.nn.functional as F
 from .base import QModule, FakeQuantize
 from torchquanter.utils import broadcast_dim_as, approximate_float
 
-class QAdd(QModule):
+class QMul(QModule):
+    """
+    Dot produc function
+    """
 
     def __init__(self, qo=True, num_bits=8, signed=True):
-        super(QAdd, self).__init__(qi=False, qo=qo, num_bits=num_bits, signed=signed)
+        super(QMul, self).__init__(qi=False, qo=qo, num_bits=num_bits, signed=signed)
         self.num_bits = num_bits
         self.signed = signed
 
@@ -35,8 +38,7 @@ class QAdd(QModule):
             self.qi2 = qi2
         if qo is not None:
             self.qo = qo
-        self.M1 = self.qi1.scale / self.qo.scale
-        self.M2 = self.qi2.scale / self.qo.scale
+        self.M = self.qi1.scale * self.qi2.scale / self.qo.scale
 
     def forward(self, x1, x2):
         if hasattr(self, 'qi1'):
@@ -46,7 +48,7 @@ class QAdd(QModule):
             self.qi2.update(x2)
             x2 = FakeQuantize.apply(x2, self.qi2)
 
-        out = x1 + x2
+        out = torch.mul(x1, x2)
 
         if hasattr(self, 'qo'):
             self.qo.update(out)
@@ -58,16 +60,13 @@ class QAdd(QModule):
         x1 = x1 - self.qi1.zero_point
         x2 = x2 - self.qi2.zero_point
         if mode is None:
-            x1 = self.M1 * x1
-            x2 = self.M2 * x2
-            out = x1 + x2
+            out = torch.mul(x1, x2)
+            out = out * self.M
             out.round_() 
         elif mode == 'cmsis_nn':
-            multiplier1, shift1 = approximate_float(self.M1)
-            multiplier2, shift2 = approximate_float(self.M2)
-            x1 = x1 * multiplier1 >> (31 - shift1)
-            x2 = x2 * multiplier2 >> (31 - shift2)
-            out = x1 + x2
+            multiplier, shift = approximate_float(self.M)
+            out = torch.mul(x1, x2)
+            out = out * multiplier >> (31 - shift)
         else:
             raise Exception(f'Unknown mode {mode}')
         out = out + self.qo.zero_point        

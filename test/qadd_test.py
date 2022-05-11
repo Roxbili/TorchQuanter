@@ -51,7 +51,7 @@ def test_qadd1():
         model.quantize_forward(data)
     model.freeze()
 
-    qout_float = model.quantize_inference(data).flatten()
+    qout_float = model.quantize_inference(data, mode=None).flatten()
     err = (out - qout_float).abs().mean()
     assert err < 0.1, f'err: {err}'
 
@@ -72,5 +72,5 @@ def test_qadd2():
 
 
 if __name__ == '__main__':
-    # test_qadd1()
-    test_qadd2()
+    test_qadd1()
+    # test_qadd2()
