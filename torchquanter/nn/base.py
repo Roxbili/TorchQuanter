@@ -256,9 +256,9 @@ class RoundSTE(Function):
 class ClampSTE(Function):
 
     @staticmethod
-    def forward(ctx, x, qparam: QParam):
-        return torch.clamp(x, qparam.qmin, qparam.qmax)
+    def forward(ctx, x, qmin, qmax):
+        return torch.clamp(x, qmin, qmax)
 
     @staticmethod
     def backward(ctx, grad_output):
-        return grad_output, None
+        return grad_output, None, None
