@@ -8,6 +8,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 
 from models.model import Model, ModelBN, ModelLinear, ModelShortCut, ModelLayerNorm
+from torchquanter.utils import random_seed
 
 def full_inference(model, test_loader):
     correct = 0
@@ -33,6 +34,8 @@ def quantize_inference(model, test_loader):
     print('\nTest set: Quant Model Accuracy: {:.2f}%\n'.format(100. * correct / len(test_loader.dataset)))
 
 if __name__ == "__main__":
+    random_seed(seed=42)
+
     # parameters
     batch_size = 64
     save_model_dir = 'examples/ckpt'

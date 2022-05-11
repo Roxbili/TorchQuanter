@@ -1,4 +1,5 @@
 import os, sys
+
 sys.path.append(os.path.join(os.getcwd(), 'examples/'))
 import argparse
 import torch
@@ -7,6 +8,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 
 from models.model import Model, ModelBN, ModelLinear, ModelShortCut, ModelLayerNorm
+from torchquanter.utils import random_seed
 
 
 def quantize_aware_training(model: Model, device, train_loader, optimizer, epoch):
@@ -46,6 +48,8 @@ def quantize_inference(model, test_loader):
 
 
 if __name__ == "__main__":
+    random_seed(seed=42)
+
     batch_size = 64
     epochs = 3
     lr = 0.01

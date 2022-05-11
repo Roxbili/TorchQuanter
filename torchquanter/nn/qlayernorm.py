@@ -47,7 +47,7 @@ class QLayerNorm(QModule):
         """
         if not hasattr(self, 'qi') and qi is None:
             raise ValueError('qi is not existed, should be provided.')
-        if hasattr(self, 'qi') and qi is None:
+        if hasattr(self, 'qi') and qi is None:  # for test without before_layer.qo
             qi = self.qi
             qi.update(x)
 
@@ -58,29 +58,30 @@ class QLayerNorm(QModule):
                              weight=FakeQuantize.apply(self.layernorm_module.weight, self.qw), bias=self.layernorm_module.bias,
                              eps=self.layernorm_module.eps)
             self.qo.update(x)
+            # x = FakeQuantize.apply(x, self.qo)    # 加上影响精度，虽然不符合规范，但是只运行一次就算了吧
             self.first_time = False
-
-        qx = QuantizeTensor.apply(x, qi)
-        qx = qx - qi.zero_point
-
-        # Interger-only LayerNorm
-        mean_ = qx.mean(dim=-1, keepdim=True)
-        var_ = FloorSTE.apply(torch.sum((qx - mean_)**2, dim=-1, keepdim=True) / qx.shape[-1])
-        std_ = FloorSTE.apply(torch.sqrt(var_))
-        x_std = FloorSTE.apply(((qx - mean_) / std_))
-
-        if self.layernorm_module.elementwise_affine:
-            qx = x_std * QuantizeTensor.apply(self.layernorm_module.weight, self.qw) + QuantizeTensor.apply(self.layernorm_module.bias, self.qw)
         else:
-            qx = x_std
+            qx = QuantizeTensor.apply(x, qi)
+            qx = qx - qi.zero_point
 
-        M = self.qw.scale / self.qo.scale  # 这里非常特殊，没有self.qi.scale，因为输入标准化后完全消除了qi.scale，导致之后无法提取qi.scale了
-        qx = RoundSTE.apply(M * qx)
-        qx = qx + self.qo.zero_point
-        qx = RoundSTE.apply(ClampSTE.apply(qx, self.qo))
+            # Interger-only LayerNorm
+            mean_ = qx.mean(dim=-1, keepdim=True)
+            var_ = FloorSTE.apply(torch.sum((qx - mean_)**2, dim=-1, keepdim=True) / qx.shape[-1])
+            std_ = FloorSTE.apply(torch.sqrt(var_))
+            x_std = FloorSTE.apply(((qx - mean_) / std_))
 
-        x = DequantizeTensor.apply(qx, self.qo)
-        self.qo.update(x)
+            if self.layernorm_module.elementwise_affine:
+                qx = x_std * QuantizeTensor.apply(self.layernorm_module.weight, self.qw) + QuantizeTensor.apply(self.layernorm_module.bias, self.qw)
+            else:
+                qx = x_std
+
+            M = self.qw.scale / self.qo.scale  # 这里非常特殊，没有self.qi.scale，因为输入标准化后完全消除了qi.scale，导致之后无法提取qi.scale了
+            qx = RoundSTE.apply(M * qx)
+            qx = qx + self.qo.zero_point
+            qx = RoundSTE.apply(ClampSTE.apply(qx, self.qo))
+
+            x = DequantizeTensor.apply(qx, self.qo)
+            self.qo.update(x)
 
         return x
       

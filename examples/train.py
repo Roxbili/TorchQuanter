@@ -8,6 +8,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 
 from models.model import Model, ModelBN, ModelLinear, ModelShortCut, ModelLayerNorm
+from torchquanter.utils import random_seed
 
 def train_one_epoch(model, device, train_loader, optimizer, epoch):
     model.train()
@@ -45,6 +46,8 @@ def validate(model: nn.Module, device, test_loader):
 
 
 if __name__ == "__main__":
+    random_seed(seed=42)
+
     # parameters
     batch_size = 64
     test_batch_size = 64
