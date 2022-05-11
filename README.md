@@ -36,5 +36,6 @@ MaxPool2d
 - [x] 量化框架scale修改实现，使用multiplier和shift
 - [x] 支持add
 - [x] 支持layernorm
-- [ ] 支持softmax
+- [x] 支持softmax
+- [ ] 支持matmul量化
 - [ ] 支持transformer encoder

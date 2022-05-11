@@ -4,47 +4,47 @@ sys.path.append(os.path.join(os.getcwd(), 'examples/'))
 import torch
 import torch.nn as nn
 
-from torchquanter.nn import QLayerNorm
+from torchquanter.nn import QSoftmax
 # from models.model import ModelShortCut
 
 torch.manual_seed(0)
 
-class TestQlayernorm(nn.Module):
+class TestSoftmax(nn.Module):
     def __init__(self):
-        super(TestQlayernorm, self).__init__()
-        self.layernorm = nn.LayerNorm(4)
+        super(TestSoftmax, self).__init__()
+        self.softmax = nn.Softmax(dim=-1)
     
     def forward(self, x):
-        x = self.layernorm(x)
+        x = self.softmax(x)
         return x
 
     def quantize(self):
-        self.qlayernorm = QLayerNorm(self.layernorm, qi=True, qo=True)
+        self.qsoftmax = QSoftmax(dim=-1, qi=True, qo=True)
 
     def quantize_forward(self, x):
-        x = self.qlayernorm(x)
+        x = self.qsoftmax(x)
         return x
 
     def freeze(self):
-        self.qlayernorm.freeze()
+        self.qsoftmax.freeze()
 
     def quantize_inference(self, x, mode='cmsis_nn'):
-        qx = self.qlayernorm.qi.quantize_tensor(x)
-        qx = self.qlayernorm.quantize_inference(qx, mode=mode)
-        out = self.qlayernorm.qo.dequantize_tensor(qx)
+        qx = self.qsoftmax.qi.quantize_tensor(x)
+        qx = self.qsoftmax.quantize_inference(qx)
+        out = self.qsoftmax.qo.dequantize_tensor(qx)
         return out
 
-def test_qlayernorm():
+def test_qsoftmax():
     data = torch.rand(1,4)
 
-    model = TestQlayernorm()
+    model = TestSoftmax()
     model(data)
     out = model(data).flatten()
 
     model.eval()
     model.quantize()
     for _ in range(10):
-        model.quantize_forward(data)
+        simulate_out = model.quantize_forward(data)
     model.freeze()
 
     qout_float = model.quantize_inference(data).flatten()
@@ -52,4 +52,4 @@ def test_qlayernorm():
     assert err < 0.1, f'err: {err}'
 
 if __name__ == '__main__':
-    test_qlayernorm()
+    test_qsoftmax()

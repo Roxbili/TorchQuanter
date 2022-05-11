@@ -6,3 +6,4 @@ from .qconvbnrelu import QConvBNReLU
 from .qlinearrelu import QLinearReLU
 from .qadd import QAdd
 from .qlayernorm import QLayerNorm
+from .qsoftmax import QSoftmax

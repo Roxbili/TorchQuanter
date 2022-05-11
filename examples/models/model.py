@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torchquanter.nn import QConv2d, QMaxPool2d, QReLU, QLinear, QConvBNReLU, QLinearReLU, QAdd, QLayerNorm
+from torchquanter.nn import QConv2d, QMaxPool2d, QReLU, QLinear, QConvBNReLU, QLinearReLU, QAdd, QLayerNorm, QSoftmax
 
 class Model(nn.Module):
     def __init__(self):
@@ -299,9 +299,51 @@ class ModelLayerNorm(nn.Module):
         return out
     
 
-if __name__ == '__main__':
-    input_data = torch.rand(1, 28, 28, dtype=torch.float32)
-    model = Model()
+'''
+# 目前的完成度还不允许量化Attention
+class Attention(nn.Module):
+    def __init__(self, dim, num_heads=2, attention_dropout=0.1, projection_dropout=0.1):
+        super().__init__()
+        self.num_heads = num_heads
+        head_dim = dim // self.num_heads
+        self.scale = head_dim ** -0.5
 
-    output = model(input_data)
-    print(output.shape)
+        self.qkv = nn.Linear(dim, dim * 3, bias=False)
+        self.attn_drop = nn.Dropout(attention_dropout)
+        self.proj = nn.Linear(dim, dim)
+        self.proj_drop = nn.Dropout(projection_dropout)
+
+    def forward(self, x):
+        B, N, C = x.shape
+        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv[0], qkv[1], qkv[2]
+
+        attn = (q @ k.transpose(-2, -1)) * self.scale
+        attn = attn.softmax(dim=-1)
+        attn = self.attn_drop(attn)
+
+        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        x = self.proj(x)
+        x = self.proj_drop(x)
+        return x
+
+    def quantize(self, num_bits=8, signed=True):
+        self.qqkv = QLinear(self.qkv, qi=True, qo=True, num_bits=num_bits)
+        self.qsoftmax1 = QSoftmax(dim=-1, qi=False, num_bits=num_bits, signed=signed)
+        self.qproj = QLinear(self.proj, qi=False, num_bits=num_bits, signed=signed)
+
+    def quantize_forward(self, x):
+        B, N, C = x.shape
+        qkv = self.qqkv(x)
+        qkv = qkv.reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv[0], qkv[1], qkv[2]
+
+        attn = (q @ k.transpose(-2, -1)) * self.scale
+        attn = self.qsoftmax1(attn)
+        attn = self.attn_drop(attn)
+
+        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        x = self.qproj(x)
+        x = self.proj_drop(x)
+        return x
+'''
