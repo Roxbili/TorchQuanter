@@ -35,6 +35,4 @@ The explanation may to use `torch.var(x, unbiased=False)` unbiased when calculat
 
 ## Quantization inference
 
-![img](../img/IMG_1285.png)
-
-关于bias量化，若使用$S_I$代替原来的$S_I * S_W$，将导致bias范围被大幅度缩减(32-8bit)，但是可以加快运算，不确定损失有多少。更多细节可参考[链接](https://zhuanlan.zhihu.com/p/156835141)。
+![img](../img/IMG_1294.png)

@@ -37,5 +37,7 @@ MaxPool2d
 - [x] 支持add
 - [x] 支持layernorm
 - [x] 支持softmax
-- [ ] 支持matmul量化
+- [x] 支持mul量化
+- [x] 支持matmul量化
+- [ ] 支持attention
 - [ ] 支持transformer encoder
