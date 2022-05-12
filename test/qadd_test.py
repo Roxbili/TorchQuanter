@@ -20,7 +20,7 @@ class TestAdd(nn.Module):
 
     def quantize(self):
         self.qconv = QConv2d(self.conv, qi=True, qo=True, qmode='per_channel')
-        self.qadd = QAdd(qo=True)
+        self.qadd = QAdd(qi1=False, qi2=False, qo=True)
 
     def quantize_forward(self, x):
         x_ = self.qconv(x)

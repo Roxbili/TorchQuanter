@@ -19,7 +19,7 @@ class TestMul(nn.Module):
 
     def quantize(self):
         self.qfc = QLinear(self.fc, qi=True, qo=True)
-        self.qmul = QMul()
+        self.qmul = QMul(qi1=False, qi2=False)
 
     def quantize_forward(self, x):
         x = self.qfc(x)

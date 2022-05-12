@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .base import QModule, FakeQuantize
+from .base import QModule, FakeQuantize, QParamIO
 from torchquanter.utils import broadcast_dim_as, approximate_float
 
 class QMatmul(QModule):
@@ -10,8 +10,12 @@ class QMatmul(QModule):
     Dot produc function
     """
 
-    def __init__(self, qo=True, num_bits=8, signed=True):
+    def __init__(self, qi1=True, qi2=True, qo=True, num_bits=8, signed=True):
         super(QMatmul, self).__init__(qi=False, qo=qo, num_bits=num_bits, signed=signed)
+        if qi1:
+            self.qi1 = QParamIO(num_bits=num_bits, signed=signed, symmetric=False)
+        if qi2:
+            self.qi2 = QParamIO(num_bits=num_bits, signed=signed, symmetric=False)
         self.num_bits = num_bits
         self.signed = signed
 
