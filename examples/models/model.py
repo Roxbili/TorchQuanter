@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torchquanter.nn import QConv2d, QMaxPool2d, QReLU, QLinear, QConvBNReLU, QLinearReLU, QAdd, QLayerNorm, QSoftmax
+from torchquanter.nn import QConv2d, QMaxPool2d, QReLU, QLinear, QConvBNReLU, QLinearReLU, QAdd, QLayerNorm, QSoftmax, QMul, QMatmul
 
 class Model(nn.Module):
     def __init__(self):
@@ -30,7 +30,7 @@ class Model(nn.Module):
         self.qconv2 = QConv2d(self.block[3], qi=False, qo=True, num_bits=num_bits, signed=signed, qmode='per_channel')
         self.qrelu2 = QReLU(qi=False, signed=signed)
         self.qmaxpool2 = QMaxPool2d(self.block[5], qi=False, signed=signed)
-        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits, signed=signed, qmode='per_channel')
+        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits, signed=signed)
 
     def quantize_forward(self, x):
         """
@@ -101,7 +101,7 @@ class ModelBN(nn.Module):
         self.qmaxpool1 = QMaxPool2d(self.block[3], signed=signed)
         self.qconv2 = QConvBNReLU(self.block[4], self.block[5], qi=False, qo=True, num_bits=num_bits, signed=signed, qmode='per_channel')
         self.qmaxpool2 = QMaxPool2d(self.block[7], signed=signed)
-        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits, signed=signed, qmode='per_channel')
+        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits, signed=signed)
 
     def quantize_forward(self, x):
         x = self.qconv1(x)
@@ -149,9 +149,9 @@ class ModelLinear(nn.Module):
         return x
 
     def quantize(self, num_bits=8, signed=True):
-        self.qlinear1 = QLinearReLU(self.linear1, signed=signed, qmode='per_channel')
-        self.qlinear2 = QLinearReLU(self.linear2, qi=False, signed=signed, qmode='per_channel')
-        self.qlinear3 = QLinear(self.linear3, qi=False, signed=signed, qmode='per_channel')
+        self.qlinear1 = QLinearReLU(self.linear1, signed=signed)
+        self.qlinear2 = QLinearReLU(self.linear2, qi=False, signed=signed)
+        self.qlinear3 = QLinear(self.linear3, qi=False, signed=signed)
 
     def quantize_forward(self, x):
         x = x.view(-1, 28*28)
@@ -205,7 +205,7 @@ class ModelShortCut(nn.Module):
                 num_bits=num_bits, signed=signed, qmode='per_channel')
         self.qadd = QAdd(qo=True, num_bits=num_bits, signed=signed)
         self.qmaxpool = QMaxPool2d(self.maxpool, num_bits=num_bits, signed=signed)
-        self.qfc = QLinear(self.linear, qi=False, qo=True, num_bits=num_bits, signed=signed, qmode='per_tensor')
+        self.qfc = QLinear(self.linear, qi=False, qo=True, num_bits=num_bits, signed=signed)
 
     def quantize_forward(self, x):
         x = self.qconv1(x)
@@ -257,13 +257,13 @@ class ModelLayerNorm(nn.Module):
         return x
 
     def quantize(self, num_bits=8, signed=True):
-        self.qlinear1 = QLinear(self.block1[0], qi=True, qo=True, num_bits=num_bits, signed=signed, qmode='per_tensor')
+        self.qlinear1 = QLinear(self.block1[0], qi=True, qo=True, num_bits=num_bits, signed=signed)
         self.qlayernorm1 = QLayerNorm(self.block1[1], qi=False, num_bits=num_bits, signed=signed)
         self.qrelu1 = QReLU(num_bits=num_bits, signed=signed)
-        self.qlinear2 = QLinear(self.block2[0], qi=False, qo=True, num_bits=num_bits, signed=signed, qmode='per_tensor')
+        self.qlinear2 = QLinear(self.block2[0], qi=False, qo=True, num_bits=num_bits, signed=signed)
         self.qlayernorm2 = QLayerNorm(self.block2[1], qi=False, num_bits=num_bits, signed=signed)
         self.qrelu2 = QReLU(num_bits=num_bits, signed=signed)
-        self.qfc = QLinear(self.linear, qi=False, qo=True, num_bits=num_bits, signed=signed, qmode='per_channel')
+        self.qfc = QLinear(self.linear, qi=False, qo=True, num_bits=num_bits, signed=signed)
 
     def quantize_forward(self, x):
         x = x.view(-1, 28*28)
@@ -299,8 +299,6 @@ class ModelLayerNorm(nn.Module):
         return out
     
 
-'''
-# 目前的完成度还不允许量化Attention
 class Attention(nn.Module):
     def __init__(self, dim, num_heads=2, attention_dropout=0.1, projection_dropout=0.1):
         super().__init__()
@@ -329,6 +327,7 @@ class Attention(nn.Module):
 
     def quantize(self, num_bits=8, signed=True):
         self.qqkv = QLinear(self.qkv, qi=True, qo=True, num_bits=num_bits)
+        self.qmatmul_qk = QMatmul(num_bits=num_bits, signed=signed)
         self.qsoftmax1 = QSoftmax(dim=-1, qi=False, num_bits=num_bits, signed=signed)
         self.qproj = QLinear(self.proj, qi=False, num_bits=num_bits, signed=signed)
 
@@ -346,4 +345,3 @@ class Attention(nn.Module):
         x = self.qproj(x)
         x = self.proj_drop(x)
         return x
-'''

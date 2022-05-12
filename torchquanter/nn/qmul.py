@@ -65,8 +65,9 @@ class QMul(QModule):
             out.round_() 
         elif mode == 'cmsis_nn':
             multiplier, shift = approximate_float(self.M)
+            round_ = 1 << (shift - 1)
             out = torch.mul(x1, x2)
-            out = out * multiplier >> (31 - shift)
+            out = (out * multiplier + round_) >> (31 - shift)
         else:
             raise Exception(f'Unknown mode {mode}')
         out = out + self.qo.zero_point        

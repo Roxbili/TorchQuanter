@@ -79,7 +79,8 @@ class QNorm(QModule):
             x.round_() 
         elif mode == 'cmsis_nn':
             multiplier, shift = approximate_float(self.M)
-            x = (x * multiplier) >> (31 - shift)
+            round_ = 1 << (shift - 1)
+            x = (x * multiplier + round_) >> (31 - shift)
         else:
             raise Exception(f'Unknown mode {mode}')
         x = x + self.qo.zero_point        

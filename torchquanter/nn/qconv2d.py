@@ -67,7 +67,9 @@ class QConv2d(QModule):
             x.round_() 
         elif mode == 'cmsis_nn':
             multiplier, shift = approximate_float(self.M)
-            x = (x * broadcast_dim_as(multiplier, x, dim=1)) >> (31 - broadcast_dim_as(shift, x, dim=1))
+            round_ = 1 << (shift - 1)
+            x = (x * broadcast_dim_as(multiplier, x, dim=1) + broadcast_dim_as(round_, x, dim=1)) \
+                    >> (31 - broadcast_dim_as(shift, x, dim=1))
         else:
             raise Exception(f'Unknown mode {mode}')
         x = x + self.qo.zero_point        

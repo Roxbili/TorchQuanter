@@ -12,6 +12,12 @@ class QSoftmax(QModule):
         self.dim = dim
         self.num_bits = num_bits
         self.signed = signed
+        self._init_qo(qo)
+
+    def _init_qo(self, qo):
+        if qo is True:
+            self.qo.scale = torch.tensor(1 / 256., dtype=torch.float32)
+            self.qo.zero_point = torch.tensor(-128., dtype=torch.float32)
 
     def freeze(self, qi=None, qo=None):
 
@@ -37,16 +43,16 @@ class QSoftmax(QModule):
 
         x = F.softmax(x, dim=self.dim)
 
+        # default qo.scale = 1/256, qo.zero_point=-128
         if hasattr(self, 'qo'):
-            self.qo.update(x)
             x = FakeQuantize.apply(x, self.qo)
         
         return x
 
     def quantize_inference(self, x):
-        x = self.qi.quantize_tensor(x)
+        x = self.qi.dequantize_tensor(x)
         x = F.softmax(x, dim=self.dim)
-        x = self.qo.dequantize_tensor(x)
+        x = self.qo.quantize_tensor(x)
         return x
 
 

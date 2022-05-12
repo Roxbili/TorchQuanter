@@ -64,9 +64,12 @@ class QAdd(QModule):
             out.round_() 
         elif mode == 'cmsis_nn':
             multiplier1, shift1 = approximate_float(self.M1)
+            round1 = 1 << (shift1 - 1)
             multiplier2, shift2 = approximate_float(self.M2)
-            x1 = x1 * multiplier1 >> (31 - shift1)
-            x2 = x2 * multiplier2 >> (31 - shift2)
+            round2 = 1 << (shift2 - 1)
+
+            x1 = (x1 * multiplier1 + round1) >> (31 - shift1)
+            x2 = (x2 * multiplier2 + round2) >> (31 - shift2)
             out = x1 + x2
         else:
             raise Exception(f'Unknown mode {mode}')

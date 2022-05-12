@@ -33,6 +33,34 @@ We can find the denominator of `var_` is not `n-1` but `n`, or it will not calcu
 
 The explanation may to use `torch.var(x, unbiased=False)` unbiased when calculating variance. Details can be seen in [link](https://stackoverflow.com/questions/66289517/layer-normalization-in-pytorch)
 
-## Quantization inference
+### Quantization inference
 
 ![img](../img/IMG_1294.png)
+
+
+## Softmax
+The input and output of Softmax is `int8` or `uint8`. 
+But it will calculate with floating point in PC, and it will calculate with fixed point in Micro.
+
+input zero_point for softmax is useless in softmax.
+
+output scale is fixed to `1/256`, zero_point is fixed to `-128`.   
+[link1](https://stackoverflow.com/questions/54052091/softmax-tensorflow-lite-not-behaving-properly/54584333#54584333)  
+
+### Softmax in CMSIS-NN
+Note that the `arm_softmax_s8` in CMSIS-NN needs parameters `mult` and `shift`, which is different from other layers.
+
+other layer:
+```python
+approximate_float(input_scale)
+```
+
+softmax in CMSIS-NN:
+```python
+softmax_input_integer_bits = 5
+
+input_scale = min(input_scale * (1 << (31 - softmax_input_integer_bits)),
+                                    (1 << 31) - 1)
+approximate_float(input_scale)
+```
+[reference link](https://github.com/ARM-software/CMSIS_5/blob/cf675280148688a50834e7b0496022360e5431cd/CMSIS/NN/Tests/UnitTest/generate_test_data.py#L781)
