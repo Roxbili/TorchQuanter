@@ -36,8 +36,9 @@ class QConv2d(QModule):
         self.conv_module.weight.data = self.qw.quantize_tensor(self.conv_module.weight.data)
         self.conv_module.weight.data = self.conv_module.weight.data - self.qw.zero_point.view(-1,1,1,1)    # 这样减法后可能无法保证范围在 8bit 内
 
-        self.conv_module.bias.data = quantize_tensor(self.conv_module.bias.data, scale=self.qi.scale * self.qw.scale,
-                                                     zero_point=0, num_bits=32, signed=True)
+        if self.conv_module.bias is not None:
+            self.conv_module.bias.data = quantize_tensor(self.conv_module.bias.data, scale=self.qi.scale * self.qw.scale,
+                                                         zero_point=0, num_bits=32, signed=True)
 
     def forward(self, x):
         if hasattr(self, 'qi'):

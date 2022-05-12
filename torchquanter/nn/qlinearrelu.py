@@ -8,12 +8,12 @@ from torchquanter.utils import quantize_tensor, approximate_float
 class QLinearReLU(QModule):
 
     def __init__(self, fc_module: nn.Linear, qi=True, qo=True, num_bits=8,
-                 signed=True, symmetric_weight=True, qmode='per_channel'):
+                 signed=True, symmetric_weight=True):
         super(QLinearReLU, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
         self.num_bits = num_bits
         self.signed = signed
         self.fc_module = fc_module
-        self.qw = QParamW(num_bits=num_bits, signed=signed, symmetric=symmetric_weight, qmode=qmode)
+        self.qw = QParamW(num_bits=num_bits, signed=signed, symmetric=symmetric_weight, qmode='per_tensor')
         # self.qb = QParam(num_bits=32)
 
     def forward(self, x):

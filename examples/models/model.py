@@ -203,7 +203,7 @@ class ModelShortCut(nn.Module):
                 num_bits=num_bits, signed=signed, qmode='per_channel')
         self.qconv2 = QConvBNReLU(self.block2[0], self.block2[1], qi=False, qo=True,
                 num_bits=num_bits, signed=signed, qmode='per_channel')
-        self.qadd = QAdd(qo=True, num_bits=num_bits, signed=signed)
+        self.qadd = QAdd(qi1=False, qi2=False, qo=True, num_bits=num_bits, signed=signed)
         self.qmaxpool = QMaxPool2d(self.maxpool, num_bits=num_bits, signed=signed)
         self.qfc = QLinear(self.linear, qi=False, qo=True, num_bits=num_bits, signed=signed)
 
@@ -304,7 +304,7 @@ class Attention(nn.Module):
         super().__init__()
         self.num_heads = num_heads
         head_dim = dim // self.num_heads
-        self.scale = head_dim ** -0.5
+        self.scale = torch.tensor(head_dim ** -0.5, dtype=torch.float32)
 
         self.qkv = nn.Linear(dim, dim * 3, bias=False)
         self.attn_drop = nn.Dropout(attention_dropout)
@@ -325,10 +325,12 @@ class Attention(nn.Module):
         x = self.proj_drop(x)
         return x
 
-    def quantize(self, num_bits=8, signed=True):
-        self.qqkv = QLinear(self.qkv, qi=True, qo=True, num_bits=num_bits)
-        self.qmatmul_qk = QMatmul(num_bits=num_bits, signed=signed)
+    def quantize(self, first_qi=True, num_bits=8, signed=True):
+        self.qqkv = QLinear(self.qkv, qi=first_qi, qo=True, num_bits=num_bits)
+        self.qmatmul_qk = QMatmul(qi1=False, qi2=False, num_bits=num_bits, signed=signed)
+        self.qmul_scale = QMul(qi1=False, qi2=True, num_bits=num_bits, signed=signed)
         self.qsoftmax1 = QSoftmax(dim=-1, qi=False, num_bits=num_bits, signed=signed)
+        self.qmatmul_attnv = QMatmul(qi1=False, qi2=False, num_bits=num_bits, signed=signed)
         self.qproj = QLinear(self.proj, qi=False, num_bits=num_bits, signed=signed)
 
     def quantize_forward(self, x):
@@ -337,11 +339,88 @@ class Attention(nn.Module):
         qkv = qkv.reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]
 
-        attn = (q @ k.transpose(-2, -1)) * self.scale
+        attn = self.qmatmul_qk(q, k.transpose(-2, -1))
+        attn = self.qmul_scale(attn, self.scale)
         attn = self.qsoftmax1(attn)
         attn = self.attn_drop(attn)
 
-        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        x = self.qmatmul_attnv(attn, v).transpose(1, 2).reshape(B, N, C)
         x = self.qproj(x)
         x = self.proj_drop(x)
+        return x
+
+    def freeze(self, qi=None):
+        self.qqkv.freeze(qi=qi)
+        self.qmatmul_qk.freeze(qi1=self.qqkv.qo, qi2=self.qqkv.qo)
+        self.qmul_scale.freeze(qi1=self.qmatmul_qk.qo)
+        self.qsoftmax1.freeze(qi=self.qmul_scale.qo)
+        self.qmatmul_attnv.freeze(qi1=self.qsoftmax1.qo, qi2=self.qqkv.qo)
+        self.qproj.freeze(qi=self.qmatmul_attnv.qo)
+
+    def quantize_inference(self, x, mode='cmsis_nn', quantize_input=False):
+        B, N, C = x.shape
+        qx = x if quantize_input else self.qqkv.qi.quantize_tensor(x)
+
+        qx_qkv = self.qqkv.quantize_inference(qx, mode=mode)
+        qx_qkv = qx_qkv.reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        qx_q, qx_k, qx_v = qx_qkv[0], qx_qkv[1], qx_qkv[2]
+
+        qx_attn = self.qmatmul_qk.quantize_inference(qx_q, qx_k.transpose(-2, -1), mode=mode)
+        qx_scale = self.qmul_scale.qi2.quantize_tensor(self.scale)
+        qx_attn = self.qmul_scale.quantize_inference(qx_attn, qx_scale, mode=mode)
+        qx_attn = self.qsoftmax1.quantize_inference(qx_attn)
+
+        qx = self.qmatmul_attnv.quantize_inference(qx_attn, qx_v, mode=mode)
+        qx = qx.transpose(1, 2).reshape(B, N, C)
+        qx = self.qproj.quantize_inference(qx, mode=mode)
+
+        out = qx if quantize_input else self.qproj.qo.dequantize_tensor(qx)
+        return out
+
+class ModelAttention(nn.Module):
+    def __init__(self):
+        super(ModelAttention, self).__init__()
+        self.pre_linear = nn.Linear(28*28, 32)
+        self.activation = nn.ReLU()
+        self.attn = Attention(dim=32)
+        self.classifier = nn.Linear(32, 10)
+
+    def forward(self, x):
+        x = x.view(-1, 28*28)
+        x = self.pre_linear(x)
+        x = x.unsqueeze(1)
+        x = self.activation(x)
+        x = self.attn(x)
+        x = self.classifier(x)
+        x = x.squeeze(1)
+        return x
+
+    def quantize(self, num_bits=8, signed=True):
+        self.qlinear_relu = QLinearReLU(self.pre_linear, qi=True, num_bits=num_bits, signed=signed)
+        self.attn.quantize(first_qi=False)
+        self.qclassifier = QLinear(self.classifier, qi=False, num_bits=num_bits, signed=signed)
+
+    def quantize_forward(self, x):
+        x = x.view(-1, 28*28)
+        x = self.qlinear_relu(x)
+        x = x.unsqueeze(1)
+        x = self.attn.quantize_forward(x)
+        x = self.qclassifier(x)
+        x = x.squeeze(1)
+        return x
+
+    def freeze(self):
+        self.qlinear_relu.freeze()
+        self.attn.freeze(qi=self.qlinear_relu.qo)
+        self.qclassifier.freeze(qi=self.attn.qproj.qo)
+
+    def quantize_inference(self, x, mode='cmsis_nn'):
+        x = x.view(-1, 28*28)
+        qx = self.qlinear_relu.qi.quantize_tensor(x)
+        qx = self.qlinear_relu.quantize_inference(qx, mode=mode)
+        qx = qx.unsqueeze(1)
+        qx = self.attn.quantize_inference(qx, mode=mode, quantize_input=True)
+        qx = self.qclassifier.quantize_inference(qx, mode=mode)
+        x = self.qclassifier.qo.dequantize_tensor(qx)
+        x = x.squeeze(1)
         return x

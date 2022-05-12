@@ -23,9 +23,11 @@ def calcScaleZeroPoint(min_val: torch.Tensor, max_val: torch.Tensor, num_bits=8,
     """
     qmin, qmax = get_qmin_qmax(num_bits, signed)
 
-    # TODO 这里scale最好和硬件保持一致，使用2的幂次，即可以用移位实现(参考一下CMSIS-NN)
     if not symmetric:
-        scale = (max_val - min_val) / (qmax - qmin) # S=(rmax-rmin)/(qmax-qmin)
+        if max_val != min_val:
+            scale = (max_val - min_val) / (qmax - qmin) # S=(rmax-rmin)/(qmax-qmin)
+        else:
+            scale = max_val / (qmax - qmin)
         zero_point = qmax - max_val / scale    # Z=round(qmax-rmax/scale)
 
         zero_point = torch.where(zero_point < qmin, torch.tensor(qmin, dtype=zero_point.dtype), zero_point)

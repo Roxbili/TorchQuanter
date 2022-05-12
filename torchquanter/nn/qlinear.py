@@ -36,8 +36,9 @@ class QLinear(QModule):
         self.fc_module.weight.data = self.qw.quantize_tensor(self.fc_module.weight.data)
         self.fc_module.weight.data = self.fc_module.weight.data - self.qw.zero_point.view(-1,1)
 
-        self.fc_module.bias.data = quantize_tensor(self.fc_module.bias.data, scale=self.qi.scale * self.qw.scale,
-                                                   zero_point=0, num_bits=32, signed=True)
+        if self.fc_module.bias is not None:
+            self.fc_module.bias.data = quantize_tensor(self.fc_module.bias.data, scale=self.qi.scale * self.qw.scale,
+                                                    zero_point=0, num_bits=32, signed=True)
 
     def forward(self, x):
         if hasattr(self, 'qi'):
