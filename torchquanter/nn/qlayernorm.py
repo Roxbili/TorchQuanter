@@ -69,7 +69,7 @@ class QLayerNorm(QModule):
             qi = self.qi
             qi.update(x)
 
-        x = self.qnorm(x, qi)    # float
+        x = self.qnorm(x, qi)
 
         if self.layernorm_module.elementwise_affine:
             self.qw.update(self.layernorm_module.weight.data)    # 统计min、max并计算scale和zero_point

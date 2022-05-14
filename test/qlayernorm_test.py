@@ -45,7 +45,7 @@ def test_qlayernorm():
     model.eval()
     model.quantize()
     for _ in range(10):
-        model.quantize_forward(data)
+        out = model.quantize_forward(data)
     model.freeze()
 
     qout_float = model.quantize_inference(data).flatten()

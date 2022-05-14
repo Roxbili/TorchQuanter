@@ -10,12 +10,13 @@ class QNorm(QModule):
     (x - mean) / var
     """
 
-    def __init__(self, qi=True, qo=True, num_bits=8, max_bits=32, signed=True):
+    def __init__(self, eps=1e-5, qi=True, qo=True, num_bits=8, max_bits=32, signed=True):
         super(QNorm, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
         self.num_bits = num_bits
         self.max_bits = max_bits
         self.signed = signed
         self.first_time = True
+        self.eps = eps
 
     def freeze(self, qi=None, qo=None):
         
@@ -34,7 +35,7 @@ class QNorm(QModule):
         if qo is not None:
             self.qo = qo
 
-        self.M = 1 / self.qo.scale
+        self.M = 1 / (self.qo.scale * 2**(self.max_bits - 2))
 
     def forward(self, x, qi=None):
         """
@@ -48,20 +49,27 @@ class QNorm(QModule):
             qi = self.qi
             qi.update(x)
 
-        qx = QuantizeTensor.apply(x, qi)
-        qx = qx - qi.zero_point
+        if self.qo.scale.numel() == 0: 
+            mean_ = torch.mean(x, dim=-1, keepdims=True)
+            var_ = torch.var(x, dim=-1, keepdims=True)
+            std_ = torch.sqrt(var_ + self.eps)
+            x = (x - mean_) / std_
+        else:
+            qx = QuantizeTensor.apply(x, qi)
+            qx = qx - qi.zero_point
 
-        # Interger-only Norm
-        mean_ = qx.mean(dim=-1, keepdim=True)
-        sum_ = ClampSTE.apply(torch.sum((qx - mean_)**2, dim=-1, keepdim=True), 
-                    *get_qmin_qmax(self.max_bits, signed=True)) # int32
-        var_ = FloorSTE.apply(sum_ / qx.shape[-1]) + 1  # var + \epsilon
-        std_ = FloorSTE.apply(torch.sqrt(var_))
-        x = FloorSTE.apply(((qx - mean_) / std_))   # float32
+            # Interger-only Norm
+            mean_ = qx.mean(dim=-1, keepdim=True)
+            sum_ = ClampSTE.apply(torch.sum((qx - mean_)**2, dim=-1, keepdim=True), 
+                        *get_qmin_qmax(self.max_bits, signed=True)) # int32, 这里超出去直接裁剪可能不如偏移来得好，先这么做吧
+            var_ = FloorSTE.apply(sum_ / qx.shape[-1])
+            std_ = FloorSTE.apply(torch.sqrt(var_))
+            factor = FloorSTE.apply(2**(self.max_bits - 1) / std_)
+            qx = FloorSTE.apply(((qx - mean_) * factor / 2))
+            x = qx / 2**(self.max_bits - 2) # 不需要floor因为这个除法是整合到M中去的
 
         self.qo.update(x)
         x = FakeQuantize.apply(x, self.qo)
-
         return x
       
     def quantize_inference(self, x, mode=None):
@@ -72,7 +80,8 @@ class QNorm(QModule):
         sum_ = torch.sum((x - mean_)**2, dim=-1, keepdim=True).clamp(*get_qmin_qmax(self.max_bits, signed=True))    # 裁剪到32bit范围内
         var_ = torch.floor(sum_ / x.shape[-1])
         std_ = sqrt_interger(var_)
-        x = torch.floor((x - mean_) / std_) # float
+        factor = torch.floor(2**(self.max_bits - 1) / std_)
+        x = torch.floor((x - mean_) * factor / 2)
 
         if mode is None:
             x = self.M * x
