@@ -39,5 +39,5 @@ MaxPool2d
 - [x] 支持softmax
 - [x] 支持mul量化
 - [x] 支持matmul量化
-- [ ] 支持attention
+- [x] 支持attention
 - [ ] 支持transformer encoder

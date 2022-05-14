@@ -1,14 +1,15 @@
-"""后训练量化"""
+"""tflite后训练量化"""
 
 import os, sys
 sys.path.append(os.path.join(os.getcwd(), 'examples/'))
+sys.path.append(os.path.join(os.getcwd(), '..', 'model-converter'))
 import torch
 import torch.nn as nn
-import torch.optim as optim
 from torchvision import datasets, transforms
 
 from models.model import Model, ModelBN, ModelLinear, ModelShortCut, ModelLayerNorm, ModelAttention
 from torchquanter.utils import random_seed
+from converter import Torch2TFLiteConverter
 
 def full_inference(model, test_loader):
     correct = 0
@@ -18,18 +19,10 @@ def full_inference(model, test_loader):
         correct += pred.eq(target.view_as(pred)).sum().item()
     print('\nTest set: Full Model Accuracy: {:.2f}%\n'.format(100. * correct / len(test_loader.dataset)))
 
-def quantize(model: Model, loader):
-    for i, (data, target) in enumerate(loader, 1):
-        output = model.quantize_forward(data)
-    print('quantization finish')
-
-def quantize_inference(model, test_loader):
-    correct = 0
-    for i, (data, target) in enumerate(test_loader, 1):
-        output = model.quantize_inference(data)
-        pred = output.argmax(dim=1, keepdim=True)
-        correct += pred.eq(target.view_as(pred)).sum().item()
-    print('\nTest set: Quant Model Accuracy: {:.2f}%\n'.format(100. * correct / len(test_loader.dataset)))
+def representative_dataset():
+    for data, label in test_loader.dataset:
+        data = data.unsqueeze(0)
+        yield [data]
 
 if __name__ == "__main__":
     random_seed(seed=42)
@@ -55,8 +48,8 @@ if __name__ == "__main__":
     # model = ModelBN()
     # model = ModelLinear()
     # model = ModelShortCut()
-    model = ModelLayerNorm()
-    # model = ModelAttention()
+    # model = ModelLayerNorm()
+    model = ModelAttention()
 
     state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)
     model.load_state_dict(state_dict)
@@ -65,12 +58,14 @@ if __name__ == "__main__":
     full_inference(model, test_loader)  # 测试模型全精度的精度
 
     # 量化
-    num_bits = 8
-    print('Quantization bit: %d' % num_bits)
-    model.quantize(num_bits=num_bits, signed=True)
-    model.eval()
-    quantize(model, test_loader)
-    model.freeze()
-
-    # 量化推理
-    quantize_inference(model, test_loader)
+    tmp_path = '/tmp/model.pth'
+    torch.save(model, tmp_path)
+    converter = Torch2TFLiteConverter(
+        torch_model_path=tmp_path,
+        tf_model_path='/tmp/model_converter/tf_model',
+        tflite_model_save_path=os.path.join(save_model_dir, f'mnist_{model._get_name()}.lite'),
+        target_shape=(28,28,1),
+        representative_dataset=representative_dataset,
+        evaluate_loader=test_loader
+    )
+    converter.convert()

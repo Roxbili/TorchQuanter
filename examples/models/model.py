@@ -2,7 +2,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torchquanter.nn import QConv2d, QMaxPool2d, QReLU, QLinear, QConvBNReLU, QLinearReLU, QAdd, QLayerNorm, QSoftmax, QMul, QMatmul
+from torchquanter.nn import (
+    QConv2d, 
+    QMaxPool2d, 
+    QReLU, 
+    QLinear, 
+    QConvBNReLU, 
+    QLinearReLU, 
+    QAdd, 
+    QLayerNorm, 
+    QSoftmax, 
+    QMul, 
+    QMatmul,
+    QLayerNormTFLite
+)
 
 class Model(nn.Module):
     def __init__(self):
@@ -327,8 +340,7 @@ class Attention(nn.Module):
 
     def quantize(self, first_qi=True, num_bits=8, signed=True):
         self.qqkv = QLinear(self.qkv, qi=first_qi, qo=True, num_bits=num_bits)
-        self.qmatmul_qk = QMatmul(qi1=False, qi2=False, num_bits=num_bits, signed=signed)
-        self.qmul_scale = QMul(qi1=False, qi2=True, num_bits=num_bits, signed=signed)
+        self.qmatmul_qk = QMatmul(qi1=False, qi2=False, mul_const=self.scale, num_bits=num_bits, signed=signed)
         self.qsoftmax1 = QSoftmax(dim=-1, qi=False, num_bits=num_bits, signed=signed)
         self.qmatmul_attnv = QMatmul(qi1=False, qi2=False, num_bits=num_bits, signed=signed)
         self.qproj = QLinear(self.proj, qi=False, num_bits=num_bits, signed=signed)
@@ -340,7 +352,6 @@ class Attention(nn.Module):
         q, k, v = qkv[0], qkv[1], qkv[2]
 
         attn = self.qmatmul_qk(q, k.transpose(-2, -1))
-        attn = self.qmul_scale(attn, self.scale)
         attn = self.qsoftmax1(attn)
         attn = self.attn_drop(attn)
 
@@ -352,8 +363,7 @@ class Attention(nn.Module):
     def freeze(self, qi=None):
         self.qqkv.freeze(qi=qi)
         self.qmatmul_qk.freeze(qi1=self.qqkv.qo, qi2=self.qqkv.qo)
-        self.qmul_scale.freeze(qi1=self.qmatmul_qk.qo)
-        self.qsoftmax1.freeze(qi=self.qmul_scale.qo)
+        self.qsoftmax1.freeze(qi=self.qmatmul_qk.qo)
         self.qmatmul_attnv.freeze(qi1=self.qsoftmax1.qo, qi2=self.qqkv.qo)
         self.qproj.freeze(qi=self.qmatmul_attnv.qo)
 
@@ -366,8 +376,6 @@ class Attention(nn.Module):
         qx_q, qx_k, qx_v = qx_qkv[0], qx_qkv[1], qx_qkv[2]
 
         qx_attn = self.qmatmul_qk.quantize_inference(qx_q, qx_k.transpose(-2, -1), mode=mode)
-        qx_scale = self.qmul_scale.qi2.quantize_tensor(self.scale)
-        qx_attn = self.qmul_scale.quantize_inference(qx_attn, qx_scale, mode=mode)
         qx_attn = self.qsoftmax1.quantize_inference(qx_attn)
 
         qx = self.qmatmul_attnv.quantize_inference(qx_attn, qx_v, mode=mode)

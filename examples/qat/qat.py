@@ -82,8 +82,8 @@ if __name__ == "__main__":
     # model = ModelBN()
     # model = ModelLinear()
     # model = ModelShortCut()
-    # model = ModelLayerNorm()
-    model = ModelAttention()
+    model = ModelLayerNorm()
+    # model = ModelAttention()
 
     state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)
     model.load_state_dict(state_dict)

@@ -55,7 +55,7 @@ class QNorm(QModule):
         mean_ = qx.mean(dim=-1, keepdim=True)
         sum_ = ClampSTE.apply(torch.sum((qx - mean_)**2, dim=-1, keepdim=True), 
                     *get_qmin_qmax(self.max_bits, signed=True)) # int32
-        var_ = FloorSTE.apply(sum_ / qx.shape[-1])
+        var_ = FloorSTE.apply(sum_ / qx.shape[-1]) + 1  # var + \epsilon
         std_ = FloorSTE.apply(torch.sqrt(var_))
         x = FloorSTE.apply(((qx - mean_) / std_))   # float32
 
@@ -71,8 +71,8 @@ class QNorm(QModule):
         mean_ = x.mean(dim=-1, keepdim=True)    # int16
         sum_ = torch.sum((x - mean_)**2, dim=-1, keepdim=True).clamp(*get_qmin_qmax(self.max_bits, signed=True))    # 裁剪到32bit范围内
         var_ = torch.floor(sum_ / x.shape[-1])
-        std_ = sqrt_interger(var_, keepdim=True)
-        x = torch.floor((x - mean_) / std_)
+        std_ = sqrt_interger(var_)
+        x = torch.floor((x - mean_) / std_) # float
 
         if mode is None:
             x = self.M * x

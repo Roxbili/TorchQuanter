@@ -4,7 +4,7 @@ sys.path.append(os.path.join(os.getcwd(), 'examples/'))
 import torch
 import torch.nn as nn
 
-from torchquanter.nn import QLayerNorm
+from torchquanter.nn import QLayerNorm, QLayerNormTFLite
 # from models.model import ModelShortCut
 
 torch.manual_seed(0)
@@ -12,7 +12,7 @@ torch.manual_seed(0)
 class TestQlayernorm(nn.Module):
     def __init__(self):
         super(TestQlayernorm, self).__init__()
-        self.layernorm = nn.LayerNorm(4)
+        self.layernorm = nn.LayerNorm(10)
     
     def forward(self, x):
         x = self.layernorm(x)
@@ -20,6 +20,7 @@ class TestQlayernorm(nn.Module):
 
     def quantize(self):
         self.qlayernorm = QLayerNorm(self.layernorm, qi=True, qo=True)
+        # self.qlayernorm = QLayerNormTFLite(self.layernorm, qi=True, qo=True)
 
     def quantize_forward(self, x):
         x = self.qlayernorm(x)
@@ -35,7 +36,7 @@ class TestQlayernorm(nn.Module):
         return out
 
 def test_qlayernorm():
-    data = torch.rand(1,4)
+    data = torch.rand(1,10)
 
     model = TestQlayernorm()
     model(data)

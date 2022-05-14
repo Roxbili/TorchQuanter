@@ -10,12 +10,18 @@ class QMul(QModule):
     Dot produc function
     """
 
-    def __init__(self, qi1=True, qi2=True, qo=True, num_bits=8, signed=True):
+    def __init__(self, mul_const=None, qi1=True, qi2=True, qo=True, num_bits=8, signed=True):
+        """
+        Args
+        ----------
+        mul_const: if not None, x1 * x2 * mul_const
+        """
         super(QMul, self).__init__(qi=False, qo=qo, num_bits=num_bits, signed=signed)
         if qi1:
             self.qi1 = QParamIO(num_bits=num_bits, signed=signed, symmetric=False)
         if qi2:
             self.qi2 = QParamIO(num_bits=num_bits, signed=signed, symmetric=False)
+        self.mul_const = mul_const if mul_const is not None else 1.
         self.num_bits = num_bits
         self.signed = signed
 
@@ -42,7 +48,7 @@ class QMul(QModule):
             self.qi2 = qi2
         if qo is not None:
             self.qo = qo
-        self.M = self.qi1.scale * self.qi2.scale / self.qo.scale
+        self.M = self.qi1.scale * self.qi2.scale * self.mul_const / self.qo.scale
 
     def forward(self, x1, x2):
         if hasattr(self, 'qi1'):
@@ -52,7 +58,7 @@ class QMul(QModule):
             self.qi2.update(x2)
             x2 = FakeQuantize.apply(x2, self.qi2)
 
-        out = torch.mul(x1, x2)
+        out = torch.mul(x1, x2) * self.mul_const
 
         if hasattr(self, 'qo'):
             self.qo.update(out)
