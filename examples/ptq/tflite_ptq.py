@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 from torchvision import datasets, transforms
 
-from models.model import Model, ModelBN, ModelLinear, ModelShortCut, ModelLayerNorm, ModelAttention
+from models.model import Model, ModelBN, ModelLinear, ModelShortCut, ModelLayerNorm, ModelAttention, ModelBNNoReLU, ModelMV2, ModelMV2Naive
 from torchquanter.utils import random_seed
 from converter import Torch2TFLiteConverter
 
@@ -46,10 +46,13 @@ if __name__ == "__main__":
     # 加载模型
     # model = Model()
     # model = ModelBN()
+    # model = ModelBNNoReLU()
     # model = ModelLinear()
     # model = ModelShortCut()
     # model = ModelLayerNorm()
-    model = ModelAttention()
+    # model = ModelAttention()
+    model = ModelMV2Naive()
+    # model = ModelMV2()
 
     state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)
     model.load_state_dict(state_dict)

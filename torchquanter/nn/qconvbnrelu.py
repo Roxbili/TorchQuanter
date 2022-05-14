@@ -8,13 +8,14 @@ from torchquanter.utils import quantize_tensor, broadcast_dim_as, approximate_fl
 
 class QConvBNReLU(QModule):
 
-    def __init__(self, conv_module: nn.Conv2d, bn_module: nn.BatchNorm2d, qi=True, qo=True, 
+    def __init__(self, conv_module: nn.Conv2d, bn_module: nn.BatchNorm2d, relu=True, qi=True, qo=True, 
                  num_bits=8, signed=True, symmetric_weight=True, qmode='per_channel'):
         super(QConvBNReLU, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
         self.num_bits = num_bits
         self.signed = signed
         self.conv_module = conv_module
         self.bn_module = bn_module
+        self.relu = relu
         self.qw = QParamW(num_bits=num_bits, signed=signed, symmetric=symmetric_weight, qmode=qmode)
         # self.qb = QParam(num_bits=32, signed=signed)
 
@@ -73,7 +74,8 @@ class QConvBNReLU(QModule):
                 padding=self.conv_module.padding, dilation=self.conv_module.dilation, 
                 groups=self.conv_module.groups)
 
-        x = F.relu(x)
+        if self.relu:
+            x = F.relu(x)
 
         if hasattr(self, 'qo'):
             self.qo.update(x)
@@ -104,8 +106,9 @@ class QConvBNReLU(QModule):
         self.conv_module.weight.data = self.qw.quantize_tensor(weight.data)
         self.conv_module.weight.data = self.conv_module.weight.data - self.qw.zero_point.view(-1,1,1,1)
 
-        self.conv_module.bias.data = quantize_tensor(bias, scale=self.qi.scale * self.qw.scale,
-                                                     zero_point=0, num_bits=32, signed=True)
+        if self.conv_module.bias is not None:
+            self.conv_module.bias.data = quantize_tensor(bias, scale=self.qi.scale * self.qw.scale,
+                                                         zero_point=0, num_bits=32, signed=True)
 
     def quantize_inference(self, x, mode=None):
         x = x - self.qi.zero_point

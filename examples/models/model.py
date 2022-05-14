@@ -2,6 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .tinyformer import (
+    Attention,
+    MV2Block
+)
 from torchquanter.nn import (
     QConv2d, 
     QMaxPool2d, 
@@ -114,6 +118,60 @@ class ModelBN(nn.Module):
         self.qmaxpool1 = QMaxPool2d(self.block[3], signed=signed)
         self.qconv2 = QConvBNReLU(self.block[4], self.block[5], qi=False, qo=True, num_bits=num_bits, signed=signed, qmode='per_channel')
         self.qmaxpool2 = QMaxPool2d(self.block[7], signed=signed)
+        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits, signed=signed)
+
+    def quantize_forward(self, x):
+        x = self.qconv1(x)
+        x = self.qmaxpool1(x)
+        x = self.qconv2(x)
+        x = self.qmaxpool2(x)
+        x = x.view(-1, 5 * 5 * 64)
+        x = self.qfc(x)
+        return x
+
+    def freeze(self):
+        self.qconv1.freeze()
+        self.qmaxpool1.freeze(qi=self.qconv1.qo)
+        self.qconv2.freeze(qi=self.qconv1.qo)
+        self.qmaxpool2.freeze(qi=self.qconv2.qo)
+        self.qfc.freeze(qi=self.qconv2.qo)
+
+    def quantize_inference(self, x, mode='cmsis_nn'):
+        qx = self.qconv1.qi.quantize_tensor(x)
+        qx = self.qconv1.quantize_inference(qx, mode=mode)
+        qx = self.qmaxpool1.quantize_inference(qx)
+        qx = self.qconv2.quantize_inference(qx, mode=mode)
+        qx = self.qmaxpool2.quantize_inference(qx)
+        qx = qx.view(-1, 5 * 5 * 64)
+        qx = self.qfc.quantize_inference(qx, mode=mode)
+        out = self.qfc.qo.dequantize_tensor(qx)
+        return out
+
+
+class ModelBNNoReLU(nn.Module):
+    def __init__(self):
+        super(ModelBNNoReLU, self).__init__()
+        self.block = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=3, stride=1),
+            nn.BatchNorm2d(32),
+            nn.MaxPool2d(2),
+            nn.Conv2d(32, 64, kernel_size=3, stride=1),
+            nn.BatchNorm2d(64),
+            nn.MaxPool2d(2)
+        )
+        self.fc = nn.Linear(5 * 5 * 64, 10)
+
+    def forward(self, x):
+        x = self.block(x)
+        x = x.view(-1, 5 * 5 * 64)
+        x = self.fc(x)
+        return x
+
+    def quantize(self, num_bits=8, signed=True):
+        self.qconv1 = QConvBNReLU(self.block[0], self.block[1], relu=False, qi=True, qo=True, num_bits=num_bits, signed=signed, qmode='per_channel')
+        self.qmaxpool1 = QMaxPool2d(self.block[2], signed=signed)
+        self.qconv2 = QConvBNReLU(self.block[3], self.block[4], relu=False, qi=False, qo=True, num_bits=num_bits, signed=signed, qmode='per_channel')
+        self.qmaxpool2 = QMaxPool2d(self.block[5], signed=signed)
         self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits, signed=signed)
 
     def quantize_forward(self, x):
@@ -312,79 +370,6 @@ class ModelLayerNorm(nn.Module):
         return out
     
 
-class Attention(nn.Module):
-    def __init__(self, dim, num_heads=2, attention_dropout=0.1, projection_dropout=0.1):
-        super().__init__()
-        self.num_heads = num_heads
-        head_dim = dim // self.num_heads
-        self.scale = torch.tensor(head_dim ** -0.5, dtype=torch.float32)
-
-        self.qkv = nn.Linear(dim, dim * 3, bias=False)
-        self.attn_drop = nn.Dropout(attention_dropout)
-        self.proj = nn.Linear(dim, dim)
-        self.proj_drop = nn.Dropout(projection_dropout)
-
-    def forward(self, x):
-        B, N, C = x.shape
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
-        q, k, v = qkv[0], qkv[1], qkv[2]
-
-        attn = (q @ k.transpose(-2, -1)) * self.scale
-        attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn)
-
-        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
-        x = self.proj(x)
-        x = self.proj_drop(x)
-        return x
-
-    def quantize(self, first_qi=True, num_bits=8, signed=True):
-        self.qqkv = QLinear(self.qkv, qi=first_qi, qo=True, num_bits=num_bits)
-        self.qmatmul_qk = QMatmul(qi1=False, qi2=False, mul_const=self.scale, num_bits=num_bits, signed=signed)
-        self.qsoftmax1 = QSoftmax(dim=-1, qi=False, num_bits=num_bits, signed=signed)
-        self.qmatmul_attnv = QMatmul(qi1=False, qi2=False, num_bits=num_bits, signed=signed)
-        self.qproj = QLinear(self.proj, qi=False, num_bits=num_bits, signed=signed)
-
-    def quantize_forward(self, x):
-        B, N, C = x.shape
-        qkv = self.qqkv(x)
-        qkv = qkv.reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
-        q, k, v = qkv[0], qkv[1], qkv[2]
-
-        attn = self.qmatmul_qk(q, k.transpose(-2, -1))
-        attn = self.qsoftmax1(attn)
-        attn = self.attn_drop(attn)
-
-        x = self.qmatmul_attnv(attn, v).transpose(1, 2).reshape(B, N, C)
-        x = self.qproj(x)
-        x = self.proj_drop(x)
-        return x
-
-    def freeze(self, qi=None):
-        self.qqkv.freeze(qi=qi)
-        self.qmatmul_qk.freeze(qi1=self.qqkv.qo, qi2=self.qqkv.qo)
-        self.qsoftmax1.freeze(qi=self.qmatmul_qk.qo)
-        self.qmatmul_attnv.freeze(qi1=self.qsoftmax1.qo, qi2=self.qqkv.qo)
-        self.qproj.freeze(qi=self.qmatmul_attnv.qo)
-
-    def quantize_inference(self, x, mode='cmsis_nn', quantize_input=False):
-        B, N, C = x.shape
-        qx = x if quantize_input else self.qqkv.qi.quantize_tensor(x)
-
-        qx_qkv = self.qqkv.quantize_inference(qx, mode=mode)
-        qx_qkv = qx_qkv.reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
-        qx_q, qx_k, qx_v = qx_qkv[0], qx_qkv[1], qx_qkv[2]
-
-        qx_attn = self.qmatmul_qk.quantize_inference(qx_q, qx_k.transpose(-2, -1), mode=mode)
-        qx_attn = self.qsoftmax1.quantize_inference(qx_attn)
-
-        qx = self.qmatmul_attnv.quantize_inference(qx_attn, qx_v, mode=mode)
-        qx = qx.transpose(1, 2).reshape(B, N, C)
-        qx = self.qproj.quantize_inference(qx, mode=mode)
-
-        out = qx if quantize_input else self.qproj.qo.dequantize_tensor(qx)
-        return out
-
 class ModelAttention(nn.Module):
     def __init__(self):
         super(ModelAttention, self).__init__()
@@ -427,8 +412,150 @@ class ModelAttention(nn.Module):
         qx = self.qlinear_relu.qi.quantize_tensor(x)
         qx = self.qlinear_relu.quantize_inference(qx, mode=mode)
         qx = qx.unsqueeze(1)
-        qx = self.attn.quantize_inference(qx, mode=mode, quantize_input=True)
+        qx = self.attn.quantize_inference(qx, mode=mode, quantized_input=True)
         qx = self.qclassifier.quantize_inference(qx, mode=mode)
         x = self.qclassifier.qo.dequantize_tensor(qx)
         x = x.squeeze(1)
         return x
+
+
+class ModelMV2Naive(nn.Module):
+    def __init__(self):
+        super(ModelMV2Naive, self).__init__()
+        self.mv2block2 = MV2Block(1, 8, stride=1, expansion=2)
+        self.fc = nn.Linear(8*28*28, 10)
+
+    def forward(self, x):
+        x = self.mv2block2(x)
+        x = x.view(-1, 8*28*28)
+        x = self.fc(x)
+        return x
+
+    def quantize(self, num_bits=8, signed=True):
+        self.mv2block2.quantize(first_qi=True, num_bits=num_bits, signed=signed)
+        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits, signed=signed)
+
+    def quantize_forward(self, x):
+        x = self.mv2block2.quantize_forward(x)
+        x = x.view(-1, 8*28*28)
+        x = self.qfc(x)
+        return x
+
+    def freeze(self):
+        self.mv2block2.freeze()
+        self.qfc.freeze(qi=self.mv2block2.qlast_op.qo)
+
+    def quantize_inference(self, x, mode='cmsis_nn'):
+        qx = self.mv2block2.qconv[0].qi.quantize_tensor(x)
+        qx = self.mv2block2.quantize_inference(qx, mode=mode)
+        qx = qx.view(-1, 8*28*28)
+        qx = self.qfc.quantize_inference(qx, mode=mode)
+        out = self.qfc.qo.dequantize_tensor(qx)
+        return out
+
+
+class ModelMV2(nn.Module):
+    def __init__(self):
+        super(ModelMV2, self).__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU()
+        )
+        self.mv2block2 = MV2Block(16, 32, stride=2, expansion=2)
+        self.maxpool = nn.MaxPool2d(kernel_size=2)
+        self.fc = nn.Linear(32*7*7, 10)
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.mv2block2(x)
+        x = self.maxpool(x)
+        x = x.view(-1, 32*7*7)
+        x = self.fc(x)
+        return x
+
+    def quantize(self, num_bits=8, signed=True):
+        self.qconv = QConvBNReLU(
+            self.conv[0], self.conv[1], relu=True,
+            qi=True, num_bits=num_bits, signed=signed
+        )
+        self.mv2block2.quantize(first_qi=False, num_bits=num_bits, signed=signed)
+        self.qmaxpool = QMaxPool2d(self.maxpool, qi=False, num_bits=num_bits, signed=signed)
+        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits, signed=signed)
+
+    def quantize_forward(self, x):
+        x = self.qconv(x)
+        x = self.mv2block2.quantize_forward(x)
+        x = self.qmaxpool(x)
+        x = x.view(-1, 32*7*7)
+        x = self.qfc(x)
+        return x
+
+    def freeze(self):
+        self.qconv.freeze()
+        self.mv2block2.freeze(qi=self.qconv.qo)
+        self.qmaxpool.freeze(qi=self.mv2block2.qlast_op.qo)
+        self.qfc.freeze(qi=self.mv2block2.qlast_op.qo)
+
+    def quantize_inference(self, x, mode='cmsis_nn'):
+        qx = self.qconv.qi.quantize_tensor(x)
+        qx = self.qconv.quantize_inference(qx, mode=mode)
+        qx = self.mv2block2.quantize_inference(qx, mode=mode, quantized_input=True)
+        qx = self.qmaxpool.quantize_inference(qx)
+        qx = qx.view(-1, 32*7*7)
+        qx = self.qfc.quantize_inference(qx, mode=mode)
+        out = self.qfc.qo.dequantize_tensor(qx)
+        return out
+
+class ModelMV2ShortCut(nn.Module):
+    def __init__(self):
+        super(ModelMV2ShortCut, self).__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU()
+        )
+        self.mv2block2 = MV2Block(16, 16, stride=1, expansion=2)
+        self.maxpool = nn.MaxPool2d(kernel_size=2)
+        self.fc = nn.Linear(16*7*7, 10)
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.mv2block2(x)
+        x = self.maxpool(x)
+        x = x.view(-1, 16*7*7)
+        x = self.fc(x)
+        return x
+
+    def quantize(self, num_bits=8, signed=True):
+        self.qconv = QConvBNReLU(
+            self.conv[0], self.conv[1], relu=True,
+            qi=True, num_bits=num_bits, signed=signed
+        )
+        self.mv2block2.quantize(first_qi=False, num_bits=num_bits, signed=signed)
+        self.qmaxpool = QMaxPool2d(self.maxpool, qi=False, num_bits=num_bits, signed=signed)
+        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits, signed=signed)
+
+    def quantize_forward(self, x):
+        x = self.qconv(x)
+        x = self.mv2block2.quantize_forward(x)
+        x = self.qmaxpool(x)
+        x = x.view(-1, 16*7*7)
+        x = self.qfc(x)
+        return x
+
+    def freeze(self):
+        self.qconv.freeze()
+        self.mv2block2.freeze(qi=self.qconv.qo)
+        self.qmaxpool.freeze(qi=self.mv2block2.qlast_op.qo)
+        self.qfc.freeze(qi=self.mv2block2.qlast_op.qo)
+
+    def quantize_inference(self, x, mode='cmsis_nn'):
+        qx = self.qconv.qi.quantize_tensor(x)
+        qx = self.qconv.quantize_inference(qx, mode=mode)
+        qx = self.mv2block2.quantize_inference(qx, mode=mode, quantized_input=True)
+        qx = self.qmaxpool.quantize_inference(qx)
+        qx = qx.view(-1, 16*7*7)
+        qx = self.qfc.quantize_inference(qx, mode=mode)
+        out = self.qfc.qo.dequantize_tensor(qx)
+        return out

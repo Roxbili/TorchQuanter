@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-from models.model import Model, ModelBN, ModelLinear, ModelShortCut, ModelLayerNorm, ModelAttention
+from models.model import Model, ModelBN, ModelLinear, ModelShortCut, ModelLayerNorm, ModelAttention, ModelBNNoReLU, ModelMV2
 from torchquanter.utils import random_seed
 
 
@@ -80,10 +80,12 @@ if __name__ == "__main__":
     # 加载训练好的全精度模型
     # model = Model()
     # model = ModelBN()
+    # model = ModelBNNoReLU()
     # model = ModelLinear()
     # model = ModelShortCut()
-    model = ModelLayerNorm()
+    # model = ModelLayerNorm()
     # model = ModelAttention()
+    model = ModelMV2()
 
     state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)
     model.load_state_dict(state_dict)

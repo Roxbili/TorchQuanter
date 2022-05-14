@@ -103,10 +103,12 @@ class QParamIO(QParam):
             state_dict.pop(prefix + key)
 
     def __str__(self):
-        info = 'scale: %.10f  ' % self.scale
-        info += 'zero_point: %d  ' % self.zero_point
-        info += 'running_min: %.6f  ' % self.running_min
-        info += 'running_max: %.6f  ' % self.running_max
+        # info = 'scale: %.10f  ' % self.scale
+        # info += 'zero_point: %d  ' % self.zero_point
+        # info += 'running_min: %.6f  ' % self.running_min
+        # info += 'running_max: %.6f  ' % self.running_max
+        info = f'scale: {self.scale}   zero_point: {self.zero_point}\n' \
+               f'running_min: {self.running_min}   running_max: {self.running_max}'
         return info
 
 
@@ -170,10 +172,12 @@ class QParamW(QParam):
             state_dict.pop(prefix + key)
 
     def __str__(self):
-        info = 'scale: %.10f  ' % self.scale
-        info += 'zero_point: %d  ' % self.zero_point
-        info += 'min: %.6f  ' % self.min
-        info += 'max: %.6f  ' % self.max
+        # info = 'scale: %.10f  ' % self.scale
+        # info += 'zero_point: %d  ' % self.zero_point
+        # info += 'min: %.6f  ' % self.min
+        # info += 'max: %.6f  ' % self.max
+        info = f'scale: {self.scale}   zero_point: {self.zero_point}\n' \
+               f'min: {self.min}   max: {self.max}'
         return info
 
 
