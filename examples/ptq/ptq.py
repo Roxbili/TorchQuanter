@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-from models.model import Model, ModelBN, ModelLinear, ModelShortCut, ModelLayerNorm, ModelAttention, ModelBNNoReLU, ModelMV2, ModelMV2Naive
+from models.model import Model, ModelBN, ModelLinear, ModelShortCut, ModelLayerNorm, ModelAttention, ModelBNNoReLU, ModelMV2, ModelMV2Naive, ModelDepthwise
 from torchquanter.utils import random_seed
 
 def full_inference(model, test_loader):
@@ -58,7 +58,8 @@ if __name__ == "__main__":
     # model = ModelShortCut()
     # model = ModelLayerNorm()
     # model = ModelAttention()
-    model = ModelMV2Naive()
+    model = ModelDepthwise()
+    # model = ModelMV2Naive()
     # model = ModelMV2()
 
     state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)

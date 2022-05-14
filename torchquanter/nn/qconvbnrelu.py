@@ -109,6 +109,9 @@ class QConvBNReLU(QModule):
         if self.conv_module.bias is not None:
             self.conv_module.bias.data = quantize_tensor(bias, scale=self.qi.scale * self.qw.scale,
                                                          zero_point=0, num_bits=32, signed=True)
+        else:
+            self.conv_module.bias = nn.Parameter(quantize_tensor(bias, scale=self.qi.scale * self.qw.scale,
+                                                 zero_point=0, num_bits=32, signed=True), requires_grad=True)
 
     def quantize_inference(self, x, mode=None):
         x = x - self.qi.zero_point

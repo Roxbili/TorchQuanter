@@ -419,6 +419,50 @@ class ModelAttention(nn.Module):
         return x
 
 
+class ModelDepthwise(nn.Module):
+    def __init__(self,):
+        super(ModelDepthwise, self).__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(1, 8, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(8, 8, kernel_size=3, stride=2, padding=1, groups=8),
+            nn.BatchNorm2d(8),
+            nn.ReLU()
+        )
+        self.fc = nn.Linear(8*14*14, 10)
+    
+    def forward(self, x):
+        x = self.conv(x)
+        x = x.view(-1, 8*14*14)
+        x = self.fc(x)
+        return x
+
+    def quantize(self, num_bits=8, signed=True):
+        self.qconv1 = QConv2d(self.conv[0], qi=True, qo=True, num_bits=num_bits, signed=signed)
+        self.qconv2 = QConvBNReLU(self.conv[1], self.conv[2], relu=True, qi=False, num_bits=num_bits, signed=signed)
+        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits, signed=signed)
+    
+    def quantize_forward(self, x):
+        x = self.qconv1(x)
+        x = self.qconv2(x)
+        x = x.view(-1, 8*14*14)
+        x = self.qfc(x)
+        return x
+
+    def freeze(self):
+        self.qconv1.freeze()
+        self.qconv2.freeze(qi=self.qconv1.qo)
+        self.qfc.freeze(qi=self.qconv2.qo)
+
+    def quantize_inference(self, x, mode='cmsis_nn'):
+        qx = self.qconv1.qi.quantize_tensor(x)
+        qx = self.qconv1.quantize_inference(qx, mode=mode)
+        qx = self.qconv2.quantize_inference(qx, mode=mode)
+        qx = qx.view(-1, 8*14*14)
+        qx = self.qfc.quantize_inference(qx, mode=mode)
+        out = self.qfc.qo.dequantize_tensor(qx)
+        return out
+
+
 class ModelMV2Naive(nn.Module):
     def __init__(self):
         super(ModelMV2Naive, self).__init__()
@@ -500,7 +544,7 @@ class ModelMV2(nn.Module):
     def quantize_inference(self, x, mode='cmsis_nn'):
         qx = self.qconv.qi.quantize_tensor(x)
         qx = self.qconv.quantize_inference(qx, mode=mode)
-        qx = self.mv2block2.quantize_inference(qx, mode=mode, quantized_input=True)
+        qx = self.mv2block2.quantize_inference(qx, mode=mode)
         qx = self.qmaxpool.quantize_inference(qx)
         qx = qx.view(-1, 32*7*7)
         qx = self.qfc.quantize_inference(qx, mode=mode)
