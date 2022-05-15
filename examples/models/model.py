@@ -1,8 +1,11 @@
+import sys
+sys.path.append('/share/Documents/project/Single-Path-One-Shot-NAS/')
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .tinyformer import (
+from compression.models.tinyformer import (
     Attention,
     MV2Block,
     TransformerEncoderLayer
