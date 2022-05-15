@@ -110,7 +110,6 @@ def sqrt_interger(tensor: torch.Tensor):
     Newton’s method to find root of a number, which is the element of tensor
     """
     tensor.round_() # make sure the element of tensor is interger
-    assert tensor.dim() == 1 or tensor.dim() == 2
 
     std_ = torch.zeros(tensor.flatten().shape, dtype=tensor.dtype, device=tensor.device)
     for i, n in enumerate(tensor.flatten()):

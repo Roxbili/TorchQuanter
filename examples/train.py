@@ -10,7 +10,7 @@ from torchvision import datasets, transforms
 from models.model import (
     Model, ModelBN, ModelLinear, ModelShortCut, ModelBNNoReLU,
     ModelLayerNorm, ModelAttention, ModelMV2, ModelMV2Naive, ModelDepthwise,
-    ModelMV2ShortCut
+    ModelMV2ShortCut, ModelTransformerEncoder
 )
 from torchquanter.utils import random_seed
 
@@ -93,7 +93,8 @@ if __name__ == "__main__":
     # model = ModelDepthwise()
     # model = ModelMV2Naive()
     # model = ModelMV2()
-    model = ModelMV2ShortCut()
+    # model = ModelMV2ShortCut()
+    model = ModelTransformerEncoder()
 
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 
