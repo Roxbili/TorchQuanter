@@ -7,7 +7,11 @@ import torch
 import torch.nn as nn
 from torchvision import datasets, transforms
 
-from models.model import Model, ModelBN, ModelLinear, ModelShortCut, ModelLayerNorm, ModelAttention, ModelBNNoReLU, ModelMV2, ModelMV2Naive, ModelDepthwise
+from models.model import (
+    Model, ModelBN, ModelLinear, ModelShortCut, ModelBNNoReLU,
+    ModelLayerNorm, ModelAttention, ModelMV2, ModelMV2Naive, ModelDepthwise,
+    ModelMV2ShortCut
+)
 from torchquanter.utils import random_seed
 from converter import Torch2TFLiteConverter
 
@@ -51,9 +55,10 @@ if __name__ == "__main__":
     # model = ModelShortCut()
     # model = ModelLayerNorm()
     # model = ModelAttention()
-    model = ModelDepthwise()
+    # model = ModelDepthwise()
     # model = ModelMV2Naive()
     # model = ModelMV2()
+    model = ModelMV2ShortCut()
 
     state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)
     model.load_state_dict(state_dict)

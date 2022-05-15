@@ -559,13 +559,13 @@ class ModelMV2ShortCut(nn.Module):
             nn.BatchNorm2d(16),
             nn.ReLU()
         )
-        self.mv2block2 = MV2Block(16, 16, stride=1, expansion=2)
+        self.mv2block = MV2Block(16, 16, stride=1, expansion=2)
         self.maxpool = nn.MaxPool2d(kernel_size=2)
         self.fc = nn.Linear(16*7*7, 10)
 
     def forward(self, x):
         x = self.conv(x)
-        x = self.mv2block2(x)
+        x = self.mv2block(x)
         x = self.maxpool(x)
         x = x.view(-1, 16*7*7)
         x = self.fc(x)
@@ -576,13 +576,13 @@ class ModelMV2ShortCut(nn.Module):
             self.conv[0], self.conv[1], relu=True,
             qi=True, num_bits=num_bits, signed=signed
         )
-        self.mv2block2.quantize(first_qi=False, num_bits=num_bits, signed=signed)
+        self.mv2block.quantize(first_qi=False, num_bits=num_bits, signed=signed)
         self.qmaxpool = QMaxPool2d(self.maxpool, qi=False, num_bits=num_bits, signed=signed)
         self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits, signed=signed)
 
     def quantize_forward(self, x):
         x = self.qconv(x)
-        x = self.mv2block2.quantize_forward(x)
+        x = self.mv2block.quantize_forward(x)
         x = self.qmaxpool(x)
         x = x.view(-1, 16*7*7)
         x = self.qfc(x)
@@ -590,14 +590,14 @@ class ModelMV2ShortCut(nn.Module):
 
     def freeze(self):
         self.qconv.freeze()
-        self.mv2block2.freeze(qi=self.qconv.qo)
-        self.qmaxpool.freeze(qi=self.mv2block2.qlast_op.qo)
-        self.qfc.freeze(qi=self.mv2block2.qlast_op.qo)
+        self.mv2block.freeze(qi=self.qconv.qo)
+        self.qmaxpool.freeze(qi=self.mv2block.qlast_op.qo)
+        self.qfc.freeze(qi=self.mv2block.qlast_op.qo)
 
     def quantize_inference(self, x, mode='cmsis_nn'):
         qx = self.qconv.qi.quantize_tensor(x)
         qx = self.qconv.quantize_inference(qx, mode=mode)
-        qx = self.mv2block2.quantize_inference(qx, mode=mode, quantized_input=True)
+        qx = self.mv2block.quantize_inference(qx, mode=mode)
         qx = self.qmaxpool.quantize_inference(qx)
         qx = qx.view(-1, 16*7*7)
         qx = self.qfc.quantize_inference(qx, mode=mode)

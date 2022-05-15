@@ -7,7 +7,11 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-from models.model import Model, ModelBN, ModelLinear, ModelShortCut, ModelLayerNorm, ModelAttention, ModelBNNoReLU, ModelMV2, ModelMV2Naive, ModelDepthwise
+from models.model import (
+    Model, ModelBN, ModelLinear, ModelShortCut, ModelBNNoReLU,
+    ModelLayerNorm, ModelAttention, ModelMV2, ModelMV2Naive, ModelDepthwise,
+    ModelMV2ShortCut
+)
 from torchquanter.utils import random_seed
 
 def train_one_epoch(model, device, train_loader, optimizer, epoch):
@@ -86,9 +90,10 @@ if __name__ == "__main__":
     # model = ModelShortCut()
     # model = ModelLayerNorm()
     # model = ModelAttention()
-    model = ModelDepthwise()
+    # model = ModelDepthwise()
     # model = ModelMV2Naive()
     # model = ModelMV2()
+    model = ModelMV2ShortCut()
 
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 
