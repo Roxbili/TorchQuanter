@@ -71,8 +71,9 @@ class QParamIO(QParam):
         """
         super(QParamIO, self).__init__(num_bits=num_bits, signed=signed, symmetric=symmetric, momentum=momentum)
 
-        running_min = torch.tensor([], requires_grad=False)
-        running_max = torch.tensor([], requires_grad=False)
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        running_min = torch.tensor([], requires_grad=False, device=device)
+        running_max = torch.tensor([], requires_grad=False, device=device)
 
         # register for saving parameters when calling torch.save API
         self.register_buffer('running_min', running_min)

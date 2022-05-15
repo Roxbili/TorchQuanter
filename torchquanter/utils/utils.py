@@ -30,11 +30,11 @@ def calcScaleZeroPoint(min_val: torch.Tensor, max_val: torch.Tensor, num_bits=8,
             scale = max_val / (qmax - qmin)
         zero_point = qmax - max_val / scale    # Z=round(qmax-rmax/scale)
 
-        zero_point = torch.where(zero_point < qmin, torch.tensor(qmin, dtype=zero_point.dtype), zero_point)
-        zero_point = torch.where(zero_point > qmax, torch.tensor(qmax, dtype=zero_point.dtype), zero_point)
+        zero_point = torch.where(zero_point < qmin, torch.tensor(qmin, dtype=zero_point.dtype, device=zero_point.device), zero_point)
+        zero_point = torch.where(zero_point > qmax, torch.tensor(qmax, dtype=zero_point.dtype, device=zero_point.device), zero_point)
     else:
         scale = torch.where(max_val.abs().data > min_val.abs().data, max_val.abs().data, min_val.abs().data) / max(abs(qmax), abs(qmin))
-        zero_point = torch.zeros(max_val.shape, dtype=min_val.dtype)
+        zero_point = torch.zeros(max_val.shape, dtype=min_val.dtype, device=max_val.device)
 
     zero_point.round_()
     return scale.to(min_val.device), zero_point.to(min_val.device)
@@ -44,9 +44,9 @@ def quantize_tensor(x: torch.Tensor, scale, zero_point, num_bits=8, signed=True)
     use scale and zero_point to quantize tensor
     """
     if not isinstance(scale, torch.Tensor):
-        scale = torch.tensor(scale, dtype=x.dtype)
+        scale = torch.tensor(scale, dtype=x.dtype, device=x.device)
     if not isinstance(zero_point, torch.Tensor):
-        zero_point = torch.tensor(zero_point, dtype=x.dtype)
+        zero_point = torch.tensor(zero_point, dtype=x.dtype, device=x.device)
 
     qmin, qmax = get_qmin_qmax(num_bits, signed)
     scale_ = broadcast_dim_as(scale, x)

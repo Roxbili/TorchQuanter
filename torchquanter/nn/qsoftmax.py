@@ -16,8 +16,9 @@ class QSoftmax(QModule):
 
     def _init_qo(self, qo):
         if qo is True:
-            self.qo.scale = torch.tensor(1 / 256., dtype=torch.float32)
-            self.qo.zero_point = torch.tensor(-128., dtype=torch.float32)
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            self.qo.scale = torch.tensor(1 / 256., dtype=torch.float32, device=device)
+            self.qo.zero_point = torch.tensor(-128., dtype=torch.float32, device=device)
 
     def freeze(self, qi=None, qo=None):
 

@@ -1,5 +1,5 @@
-import sys
-sys.path.append('/share/Documents/project/Single-Path-One-Shot-NAS/')
+import os, sys
+sys.path.append(os.path.join(os.getcwd(), '../Single-Path-One-Shot-NAS/'))
 
 import torch
 import torch.nn as nn
@@ -8,7 +8,8 @@ import torch.nn.functional as F
 from compression.models.tinyformer import (
     Attention,
     MV2Block,
-    TransformerEncoderLayer
+    TransformerEncoderLayer,
+    TransformerEncoder
 )
 from torchquanter.nn import (
     QConv2d, 
@@ -672,6 +673,62 @@ class ModelTransformerEncoder(nn.Module):
         qx = qx.transpose(-2, -1).reshape(B, C, H, W)
 
         qx = qx.reshape(-1, 7*7*16)
+        qx = self.qlinear.quantize_inference(qx, mode=mode)
+
+        out = self.qlinear.qo.dequantize_tensor(qx)
+        return out
+
+
+class ModelConvEncoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv_encoder = TransformerEncoder(
+            inp=1, oup=8,
+            embedding_dim=16, nhead=2, dim_feedforward=32
+        )
+        self.conv = nn.Sequential(
+            nn.Conv2d(8, 8, kernel_size=3, stride=2),
+            nn.BatchNorm2d(8),
+            nn.ReLU()
+        )
+        self.maxpool = nn.MaxPool2d(2)
+        self.linear = nn.Linear(8*6*6, 10)
+
+    def forward(self, x):
+        x = self.conv_encoder(x)
+        x = self.conv(x)
+        x = self.maxpool(x)
+        x = x.reshape(-1, 8*6*6)
+        x = self.linear(x)
+        return x
+
+    def quantize(self, num_bits=8, signed=True):
+        self.conv_encoder.quantize(first_qi=True, num_bits=num_bits, signed=signed)
+        self.qconv = QConvBNReLU(self.conv[0], self.conv[1], relu=True, qi=False, num_bits=num_bits, signed=signed)
+        self.qmaxpool = QMaxPool2d(self.maxpool, qi=False, num_bits=num_bits, signed=signed)
+        self.qlinear = QLinear(self.linear, qi=False, num_bits=num_bits, signed=signed)
+
+    def quantize_forward(self, x):
+        x = self.conv_encoder.quantize_forward(x)
+        x = self.qconv(x)
+        x = self.qmaxpool(x)
+        x = x.reshape(-1, 8*6*6)
+        x = self.qlinear(x)
+        return x
+
+    def freeze(self):
+        self.conv_encoder.freeze()
+        self.qconv.freeze(qi=self.conv_encoder.qconv4.qo)
+        self.qmaxpool.freeze(qi=self.qconv.qo)
+        self.qlinear.freeze(qi=self.qconv.qo)
+
+    def quantize_inference(self, x, mode='cmsis_nn'):
+        qx = self.conv_encoder.qconv1.qi.quantize_tensor(x)
+
+        qx = self.conv_encoder.quantize_inference(qx, mode=mode)
+        qx = self.qconv.quantize_inference(qx, mode=mode)
+        qx = self.qmaxpool.quantize_inference(qx)
+        qx = qx.reshape(-1, 8*6*6)
         qx = self.qlinear.quantize_inference(qx, mode=mode)
 
         out = self.qlinear.qo.dequantize_tensor(qx)

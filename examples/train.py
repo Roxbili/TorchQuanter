@@ -10,7 +10,7 @@ from torchvision import datasets, transforms
 from models.model import (
     Model, ModelBN, ModelLinear, ModelShortCut, ModelBNNoReLU,
     ModelLayerNorm, ModelAttention, ModelMV2, ModelMV2Naive, ModelDepthwise,
-    ModelMV2ShortCut, ModelTransformerEncoder
+    ModelMV2ShortCut, ModelTransformerEncoder, ModelConvEncoder
 )
 from torchquanter.utils import random_seed
 
@@ -64,8 +64,15 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # dataset
+    if os.path.exists('/share/Documents/project/dataset'):
+        dataset_path = '/share/Documents/project/dataset/mnist'
+    elif os.path.exists('/home/LAB/leifd/dataset'):
+        dataset_path = '/home/LAB/leifd/dataset/mnist'
+    else:
+        raise Exception
+
     train_loader = torch.utils.data.DataLoader(
-        datasets.MNIST('/share/Documents/project/dataset/mnist', train=True, download=True, 
+        datasets.MNIST(dataset_path, train=True, download=True, 
                        transform=transforms.Compose([
                             transforms.ToTensor(),
                             transforms.Normalize((0.1307,), (0.3081,))
@@ -74,7 +81,7 @@ if __name__ == "__main__":
     )
 
     test_loader = torch.utils.data.DataLoader(
-        datasets.MNIST('/share/Documents/project/dataset/mnist', train=False, download=False,
+        datasets.MNIST(dataset_path, train=False, download=True,
                         transform=transforms.Compose([
                             transforms.ToTensor(),
                             transforms.Normalize((0.1307,), (0.3081,))
@@ -94,8 +101,10 @@ if __name__ == "__main__":
     # model = ModelMV2Naive()
     # model = ModelMV2()
     # model = ModelMV2ShortCut()
-    model = ModelTransformerEncoder()
+    # model = ModelTransformerEncoder()
+    model = ModelConvEncoder()
 
+    model = model.to(device)
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 
     for epoch in range(1, epochs + 1):

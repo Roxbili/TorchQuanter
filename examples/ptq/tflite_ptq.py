@@ -61,6 +61,7 @@ if __name__ == "__main__":
     # model = ModelMV2ShortCut()
     model = ModelTransformerEncoder()
 
+    model = model.to(device)
     state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)
     model.load_state_dict(state_dict)
 
