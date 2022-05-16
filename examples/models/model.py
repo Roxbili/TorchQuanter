@@ -17,7 +17,6 @@ from torchquanter.nn import (
     QReLU, 
     QLinear, 
     QConvBNReLU, 
-    QLinearReLU, 
     QAdd, 
     QLayerNorm, 
     QSoftmax, 
@@ -225,8 +224,8 @@ class ModelLinear(nn.Module):
         return x
 
     def quantize(self, num_bits=8, signed=True):
-        self.qlinear1 = QLinearReLU(self.linear1, signed=signed)
-        self.qlinear2 = QLinearReLU(self.linear2, qi=False, signed=signed)
+        self.qlinear1 = QLinear(self.linear1, relu=True, signed=signed)
+        self.qlinear2 = QLinear(self.linear2, relu=True, qi=False, signed=signed)
         self.qlinear3 = QLinear(self.linear3, qi=False, signed=signed)
 
     def quantize_forward(self, x):
@@ -394,7 +393,7 @@ class ModelAttention(nn.Module):
         return x
 
     def quantize(self, num_bits=8, signed=True):
-        self.qlinear_relu = QLinearReLU(self.pre_linear, qi=True, num_bits=num_bits, signed=signed)
+        self.qlinear_relu = QLinear(self.pre_linear, relu=True, qi=True, num_bits=num_bits, signed=signed)
         self.attn.quantize(first_qi=False)
         self.qclassifier = QLinear(self.classifier, qi=False, num_bits=num_bits, signed=signed)
 

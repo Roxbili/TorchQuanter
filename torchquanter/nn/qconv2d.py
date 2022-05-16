@@ -7,12 +7,13 @@ from torchquanter.utils import quantize_tensor, broadcast_dim_as, approximate_fl
 
 class QConv2d(QModule):
 
-    def __init__(self, conv_module: nn.Conv2d, qi=True, qo=True, num_bits=8, 
+    def __init__(self, conv_module: nn.Conv2d, relu=False, qi=True, qo=True, num_bits=8, 
                  signed=True, symmetric_weight=True, qmode='per_channel'):
         super(QConv2d, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
         self.num_bits = num_bits
         self.signed = signed
         self.conv_module = conv_module
+        self.relu = relu
         self.qw = QParamW(num_bits=num_bits, signed=signed, symmetric=symmetric_weight, qmode=qmode)
 
     def freeze(self, qi=None, qo=None):
@@ -53,6 +54,8 @@ class QConv2d(QModule):
                      stride=self.conv_module.stride,
                      padding=self.conv_module.padding, dilation=self.conv_module.dilation, 
                      groups=self.conv_module.groups)
+        if self.relu:
+            x = F.relu(x)
 
         if hasattr(self, 'qo'):
             self.qo.update(x)

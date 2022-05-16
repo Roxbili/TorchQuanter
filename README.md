@@ -40,4 +40,4 @@ MaxPool2d
 - [x] 支持mul量化
 - [x] 支持matmul量化
 - [x] 支持attention
-- [ ] 支持transformer encoder
+- [x] 支持transformer encoder
