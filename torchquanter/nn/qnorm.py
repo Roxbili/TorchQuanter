@@ -64,6 +64,7 @@ class QNorm(QModule):
                         *get_qmin_qmax(self.max_bits, signed=True)) # int32, 这里超出去直接裁剪可能不如偏移来得好，先这么做吧
             var_ = FloorSTE.apply(sum_ / qx.shape[-1])
             std_ = FloorSTE.apply(torch.sqrt(var_))
+            std_[std_ == 0.] = 1.   # prevent overflow
             factor = FloorSTE.apply(2**(self.max_bits - 1) / std_)
             qx = FloorSTE.apply(((qx - mean_) * factor / 2))
             x = qx / 2**(self.max_bits - 2) # 不需要floor因为这个除法是整合到M中去的
@@ -81,6 +82,7 @@ class QNorm(QModule):
         var_ = torch.floor(sum_ / x.shape[-1])
         # std_ = sqrt_interger(var_)  # 比较费时间，此处快速评估无需使用
         std_ = torch.sqrt(var_).floor()
+        std_[std_ == 0.] = 1.   # prevent overflow
         factor = torch.floor(2**(self.max_bits - 1) / std_)
         x = torch.floor((x - mean_) * factor / 2)
 
