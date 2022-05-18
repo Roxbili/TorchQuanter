@@ -22,8 +22,9 @@ def quantize_aware_training(model: Model, device, train_loader, optimizer, epoch
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model.quantize_forward(data)
+        assert not torch.isnan(output).any()
         loss = lossLayer(output, target)
-        loss.backward()
+        loss.backward()     # BUG 是不是有什么梯度没有正常传播，不应该啊
         optimizer.step()
 
         if batch_idx % 50 == 0:
@@ -57,7 +58,7 @@ if __name__ == "__main__":
 
     batch_size = 64
     epochs = 3
-    lr = 0.01
+    lr = 0.00001
     momentum = 0.5
     save_model_dir = 'examples/ckpt'
 
@@ -108,14 +109,14 @@ if __name__ == "__main__":
         transformer0_embedding_dim=[16], transformer0_dim_feedforward=[16],
         transformer1_embedding_dim=[16], transformer1_dim_feedforward=[16],
         choice=[1,0,0,0], first_channel=1
-    )
+    )   # 对学习率特别敏感，学习旅需要设置非常小
 
     model = model.to(device)
     state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)
     model.load_state_dict(state_dict)
 
     model.eval()
-    full_inference(model, test_loader)  # 测试模型全精度的精度
+    # full_inference(model, test_loader)  # 测试模型全精度的精度
 
     # init
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
