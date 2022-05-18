@@ -9,7 +9,8 @@ from compression.models.tinyformer import (
     Attention,
     MV2Block,
     TransformerEncoderLayer,
-    TransformerEncoder
+    TransformerEncoder,
+    TinyFormerSupernetDMTPOnePath
 )
 from torchquanter.nn import (
     QConv2d, 

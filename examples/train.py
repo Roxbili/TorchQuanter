@@ -10,7 +10,8 @@ from torchvision import datasets, transforms
 from models.model import (
     Model, ModelBN, ModelLinear, ModelShortCut, ModelBNNoReLU,
     ModelLayerNorm, ModelAttention, ModelMV2, ModelMV2Naive, ModelDepthwise,
-    ModelMV2ShortCut, ModelTransformerEncoder, ModelConvEncoder
+    ModelMV2ShortCut, ModelTransformerEncoder, ModelConvEncoder,
+    TinyFormerSupernetDMTPOnePath
 )
 from torchquanter.utils import random_seed
 
@@ -56,7 +57,7 @@ if __name__ == "__main__":
     batch_size = 64
     test_batch_size = 64
     seed = 1
-    epochs = 2
+    epochs = 10
     lr = 0.01
     momentum = 0.5
     save_model_dir = 'examples/ckpt'
@@ -102,7 +103,14 @@ if __name__ == "__main__":
     # model = ModelMV2()
     # model = ModelMV2ShortCut()
     # model = ModelTransformerEncoder()
-    model = ModelConvEncoder()
+    # model = ModelConvEncoder()
+    model = TinyFormerSupernetDMTPOnePath(
+        num_classes=10, downsample_layers=1, mv2block_layers=1,
+        transformer_layers=1, channel=[8, 8, 8], last_channel=8,
+        transformer0_embedding_dim=[16], transformer0_dim_feedforward=[16],
+        transformer1_embedding_dim=[16], transformer1_dim_feedforward=[16],
+        choice=[1,0,0,0], first_channel=1
+    )
 
     model = model.to(device)
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)

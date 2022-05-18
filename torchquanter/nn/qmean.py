@@ -46,7 +46,7 @@ class QMean(QModule):
     
     def quantize_inference(self, x, mode=None):
         x = x - self.qi.zero_point
-        x = torch.mean(x, dim=self.dim, keepdim=self.keepdim)
+        x = torch.mean(x, dim=self.dim, keepdim=self.keepdim).floor()
         if mode is None:
             x = self.M * x
             x.round_() 

@@ -33,7 +33,7 @@ class TestMean(nn.Module):
         return out
 
 def test_mean():
-    data = torch.rand(1,4)
+    data = torch.rand(1,512)
 
     model = TestMean()
     model(data)
