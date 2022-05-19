@@ -35,7 +35,10 @@ The explanation may to use `torch.var(x, unbiased=False)` unbiased when calculat
 
 ### Quantization inference
 
-![img](../img/IMG_1294.png)
+<!-- ![img](../img/IMG_1294.png) -->
+
+
+---------------------------------
 
 
 ## Softmax
@@ -44,7 +47,7 @@ But it will calculate with floating point in PC, and it will calculate with fixe
 
 input zero_point for softmax is useless in softmax.
 
-output scale is fixed to `1/256`, zero_point is fixed to `-128`.   
+**output scale is fixed to** `1/256`**, zero_point is fixed to** `-128`.   
 [link1](https://stackoverflow.com/questions/54052091/softmax-tensorflow-lite-not-behaving-properly/54584333#54584333)  
 
 ### Softmax in CMSIS-NN
@@ -55,12 +58,38 @@ other layer:
 approximate_float(input_scale)
 ```
 
-softmax in CMSIS-NN:
+softmax in CMSIS-NN `scale` generate:
 ```python
-softmax_input_integer_bits = 5
+softmax_input_integer_bits = 5  # 8bit定点数中整型占5bit，应该不用修改
 
+# 这里将softmax输入的scale重新生成为接口需要的
 input_scale = min(input_scale * (1 << (31 - softmax_input_integer_bits)),
                                     (1 << 31) - 1)
+# 使用函数得到 arm_softmax_s8 所需要的 mult 和 shift
 approximate_float(input_scale)
 ```
 [reference link](https://github.com/ARM-software/CMSIS_5/blob/cf675280148688a50834e7b0496022360e5431cd/CMSIS/NN/Tests/UnitTest/generate_test_data.py#L781)
+
+
+example:
+```python
+def test_softmax_s8():
+    # 数据来自官方测试用例
+    input_data = torch.tensor([-80, -48, 16, 0, -96], dtype=torch.float32)
+    gold_output = torch.tensor([-128, -125, 56, -60, -128], dtype=torch.float32)
+    input_mult = 1077952576
+    input_left_shift = 23
+    diff_min = -248 # 暂时不知道干什么用的
+
+    # softmax 不需要input_zero_point，数学上不影响结果
+    x = input_data - input_data.max()
+
+    # 这里应该是官方计算中从 int8 -> fixed point 的方法
+    x = ((x * input_mult) >> (31 - input_left_shift)) / (1 << (31 - 5))
+
+    # 转成 fixed point后直接输入softmax函数中进行测试，结果正确
+    out1 = F.softmax(x, dim=-1)
+    out1 = out1 / (1 / 256.) - 128  # output scale和zero_point是定死的
+    out1.round_()
+    assert (out1 == gold_output).all(), print(out1)
+```
