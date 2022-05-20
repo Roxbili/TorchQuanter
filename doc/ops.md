@@ -107,6 +107,11 @@ def quantize_inference(self, x, mode=None):
 因此会对其进行放大，即乘上$2^{8-1}$次方，那么数学上等价之后就要除以$2^{8-1}$，
 那就可以把这个除以$2^{8-1}$给融合到output_scale里面
 
+需要注意，由于标准化过程会消除`input scale`和`input zero_point`的影响，因此最后
+```python
+self.M = self.qw.scale / (self.qo.scale * 2**(8 - 1))
+```
+
 QLayerNorm量化推理
 ```python
 def quantize_inference(self, x, mode=None):
