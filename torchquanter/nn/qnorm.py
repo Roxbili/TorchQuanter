@@ -66,7 +66,7 @@ class QNorm(QModule):
             var_[var_ == 0.] = 1.   # prevent overflow
             std_ = FloorSTE.apply(torch.sqrt(var_))
             factor = FloorSTE.apply(2**(self.max_bits - 1) / std_)
-            qx = FloorSTE.apply(((qx - mean_) * factor / 2))
+            qx = FloorSTE.apply(ClampSTE.apply(((qx - mean_) * factor / 2), *get_qmin_qmax(self.max_bits, signed=True)))
             x = qx / 2**(self.max_bits - 2) # 不需要floor因为这个除法是整合到M中去的
 
         self.qo.update(x)
@@ -84,7 +84,7 @@ class QNorm(QModule):
         # std_ = sqrt_interger(var_)  # 比较费时间，此处快速评估无需使用
         std_ = torch.sqrt(var_).floor()
         factor = torch.floor(2**(self.max_bits - 1) / std_)
-        x = torch.floor((x - mean_) * factor / 2)
+        x = torch.floor(torch.clamp((x - mean_) * factor / 2, *get_qmin_qmax(self.max_bits, signed=True)))
 
         if mode is None:
             x = self.M * x

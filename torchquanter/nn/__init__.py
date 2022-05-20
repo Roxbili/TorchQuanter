@@ -4,7 +4,7 @@ from .qlinear import QLinear
 from .qmaxpool2d import QMaxPool2d
 from .qconvbnrelu import QConvBNReLU
 from .qadd import QAdd
-from .qlayernorm import QLayerNorm, QLayerNormTFLite
+from .qlayernorm import QLayerNorm, QLayerNormTFLite, QLayerNorm_
 from .qsoftmax import QSoftmax
 from .qmul import QMul
 from .qmatmul import QMatmul

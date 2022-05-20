@@ -35,6 +35,7 @@ The explanation may to use `torch.var(x, unbiased=False)` unbiased when calculat
 
 ### Quantization inference
 
+<!-- 
 推理由两部分组成，即
 ```
 x -> QNorm -> * W + bias -> y
@@ -45,7 +46,6 @@ QNorm是标准化，理论上标准化是输出fp的数值，但可以通过缩�
 
 QNorm推理过程如下：
 
-<!-- ![img](../img/IMG_1294.png) -->
 ```python
 def quantize_inference(self, x, mode=None):
     x = x - self.qi.zero_point  # x 是int8的输入
@@ -101,7 +101,47 @@ def quantize_inference(self, x, mode=None):
 完整的代码实现可参考：
 1. [QLayerNorm](../torchquanter/nn/qlayernorm.py)
 2. [QNorm](../torchquanter/nn/qnorm.py)
+-->
 
+推理由 标准化 * W + bias 组成，由于标准化中存在除法会导致输出为小数，
+因此会对其进行放大，即乘上$2^{8-1}$次方，那么数学上等价之后就要除以$2^{8-1}$，
+那就可以把这个除以$2^{8-1}$给融合到output_scale里面
+
+QLayerNorm量化推理
+```python
+def quantize_inference(self, x, mode=None):
+    x = x - self.qi.zero_point
+
+    # Interger-only LayerNorm
+    mean_ = x.mean(dim=-1, keepdim=True)    # int16
+    sum_ = torch.sum((x - mean_)**2, dim=-1, keepdim=True).clamp(*get_qmin_qmax(self.max_bits, signed=True))    # 裁剪到32bit范围内
+    var_ = torch.floor(sum_ / x.shape[-1])
+    var_[var_ == 0.] = 1.   # prevent overflow
+    # std_ = sqrt_interger(var_)  # 比较费时间，此处快速评估无需使用
+    std_ = torch.sqrt(var_).floor()
+    factor = torch.floor(2**(8 - 1) / std_)
+    x = torch.floor(torch.clamp((x - mean_) * factor, *get_qmin_qmax(16, signed=True)))
+
+    if self.layernorm_module.elementwise_affine:
+        x = x * self.layernorm_module.weight.data + self.layernorm_module.bias.data
+        x = x.clamp(*get_qmin_qmax(self.max_bits, signed=True))
+
+    if mode is None:
+        x = self.M * x
+        x.round_() 
+    elif mode == 'cmsis_nn':
+        multiplier, shift = approximate_float(self.M)
+        round_ = 1 << (shift - 1)
+        x = (x * multiplier + round_) >> (31 - shift)
+    else:
+        raise Exception(f'Unknown mode {mode}')
+    x = x + self.qo.zero_point
+    x.clamp_(self.qo.qmin, self.qo.qmax).round_()
+    return x
+```
+
+完整的代码实现可参考：
+1. [QLayerNorm](../torchquanter/nn/qlayernorm.py)
 
 ---------------------------------
 
