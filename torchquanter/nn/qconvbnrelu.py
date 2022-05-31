@@ -29,7 +29,7 @@ class QConvBNReLU(QModule):
                 bias = self.bn_module.bias - gamma_ * mean
         else:
             gamma_ = 1 / std
-            weight = self.conv_module.weight * gamma_
+            weight = self.conv_module.weight * gamma_.view(self.conv_module.out_channels, 1, 1, 1)
             if self.conv_module.bias is not None:
                 bias = gamma_ * self.conv_module.bias - gamma_ * mean
             else:

@@ -24,7 +24,7 @@ def quantize_aware_training(model: Model, device, train_loader, optimizer, epoch
         output = model.quantize_forward(data)
         assert not torch.isnan(output).any()
         loss = lossLayer(output, target)
-        loss.backward()     # BUG 是不是有什么梯度没有正常传播，不应该啊
+        loss.backward()
         optimizer.step()
 
         if batch_idx % 50 == 0:
@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
     batch_size = 64
     epochs = 3
-    lr = 0.00001
+    lr = 0.001
     momentum = 0.5
     save_model_dir = 'examples/ckpt'
 
