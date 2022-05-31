@@ -15,6 +15,9 @@ from .qdiv import QDiv
 from torchquanter.utils import quantize_tensor, broadcast_dim_as, approximate_float, sqrt_interger, get_qmin_qmax
 
 class QLayerNorm(QModule):
+    """
+    QNorm * weight + bias
+    """
 
     def __init__(self, layernorm_module: nn.LayerNorm, qi=True, qo=True, num_bits=8, max_bits=32,
                  signed=True, symmetric_weight=True):
@@ -104,6 +107,9 @@ class QLayerNorm(QModule):
 
 
 class QLayerNorm_(QModule):
+    """
+    整体量化
+    """
 
     def __init__(self, layernorm_module: nn.LayerNorm, qi=True, qo=True, num_bits=8, max_bits=32,
                  signed=True, symmetric_weight=True):
@@ -213,6 +219,59 @@ class QLayerNorm_(QModule):
         x = x + self.qo.zero_point
         x.clamp_(self.qo.qmin, self.qo.qmax).round_()
         return x
+
+
+class QLayerNormFP32(QModule):
+    """
+    使用FP32进行计算
+    """
+
+    def __init__(self, layernorm_module: nn.LayerNorm, qi=True, qo=True, num_bits=8, max_bits=32,
+                 signed=True, symmetric_weight=True):
+        super(QLayerNormFP32, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
+        self.num_bits = num_bits
+        self.max_bits = max_bits
+        self.layernorm_module = layernorm_module
+        self.signed = signed
+
+    def freeze(self, qi=None, qo=None):
+
+        if hasattr(self, 'qi') and qi is not None:
+            raise ValueError('qi has been provided in init function.')
+        if not hasattr(self, 'qi') and qi is None:
+            raise ValueError('qi is not existed, should be provided.')
+
+        if hasattr(self, 'qo') and qo is not None:
+            raise ValueError('qo has been provided in init function.')
+        if not hasattr(self, 'qo') and qo is None:
+            raise ValueError('qo is not existed, should be provided.')
+
+        if qi is not None:
+            self.qi = qi
+        if qo is not None:
+            self.qo = qo
+
+    def forward(self, x, qi=None):
+        """
+        qi=None是为了保证和之前一致，使得代码可以服用
+        """
+        if hasattr(self, 'qi'):
+            self.qi.update(x)
+            x = FakeQuantize.apply(x, self.qi)
+
+        x = self.layernorm_module(x)
+
+        if hasattr(self, 'qo'):
+            self.qo.update(x)
+            x = FakeQuantize.apply(x, self.qo)
+        return x
+
+    def quantize_inference(self, x, mode=None):
+        x = self.qi.dequantize_tensor(x)
+        x = self.layernorm_module(x)
+        x = self.qo.quantize_tensor(x)
+        return x
+
 
 class QLayerNormTFLite(QModule):
     pass
