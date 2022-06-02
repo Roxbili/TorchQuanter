@@ -104,3 +104,14 @@ if __name__ == "__main__":
 
     # 量化推理
     quantize_inference(model, test_loader)
+
+    # 保存参数
+    save_path = os.path.join(save_model_dir, f'mnist_{model._get_name()}_ptq.pth')
+    torch.save(model.state_dict(), save_path)
+
+    # 加载参数
+    state_dict = torch.load(save_path)
+    model.load_state_dict(state_dict)
+
+    # 量化推理
+    quantize_inference(model, test_loader)

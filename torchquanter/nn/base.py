@@ -190,6 +190,10 @@ class QModule(nn.Module):
         if qo:
             self.qo = QParamIO(num_bits=num_bits, signed=signed, symmetric=symmetric)
 
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        M = torch.tensor([], requires_grad=False, device=device)
+        self.register_buffer('M', M)
+
     def freeze(self):
         pass
 

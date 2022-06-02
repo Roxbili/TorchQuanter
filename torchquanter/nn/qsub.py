@@ -21,6 +21,12 @@ class QSub(QModule):
         self.num_bits = num_bits
         self.signed = signed
 
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        M1 = torch.tensor([], requires_grad=False, device=device)
+        self.register_buffer('M1', M1)
+        M2 = torch.tensor([], requires_grad=False, device=device)
+        self.register_buffer('M2', M2)
+
     def freeze(self, qi1=None, qi2=None, qo=None):
         
         if hasattr(self, 'qi1') and qi1 is not None:
