@@ -171,7 +171,7 @@ class QLayerNorm_(QModule):
             qx = qx - qi.zero_point
 
             # Interger-only Norm
-            mean_ = qx.mean(dim=-1, keepdim=True)
+            mean_ = qx.mean(dim=-1, keepdim=True).clamp(*get_qmin_qmax(16, signed=True))
             sum_ = ClampSTE.apply(torch.sum((qx - mean_)**2, dim=-1, keepdim=True), 
                         *get_qmin_qmax(self.max_bits, signed=True)) # int32, 这里超出去直接裁剪可能不如偏移来得好，先这么做吧
             var_ = FloorSTE.apply(sum_ / qx.shape[-1])
@@ -194,7 +194,7 @@ class QLayerNorm_(QModule):
         x = x - self.qi.zero_point
 
         # Interger-only LayerNorm
-        mean_ = x.mean(dim=-1, keepdim=True)    # int16
+        mean_ = x.mean(dim=-1, keepdim=True).clamp(*get_qmin_qmax(16, signed=True))    # int16
         sum_ = torch.sum((x - mean_)**2, dim=-1, keepdim=True).clamp(*get_qmin_qmax(self.max_bits, signed=True))    # 裁剪到32bit范围内
         var_ = torch.floor(sum_ / x.shape[-1])
         var_[var_ == 0.] = 1.   # prevent overflow

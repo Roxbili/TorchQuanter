@@ -2,6 +2,11 @@
 
 TorchQuanter is designed to quantize pytorch model.
 
+## Install
+```
+pip install -e .
+```
+
 ## Quantization specification
 ```python
 signed
@@ -27,17 +32,3 @@ Linear, Linear + ReLU
 ReLU
 MaxPool2d
 ```
-
-## TODO
-- [x] 量化框架Linear、ReLU融合
-- [x] 量化框架uint8和int8之间可选
-- [x] 是否对称量化可选
-- [x] per-tensor 和 per-channel之间可选
-- [x] 量化框架scale修改实现，使用multiplier和shift
-- [x] 支持add
-- [x] 支持layernorm
-- [x] 支持softmax
-- [x] 支持mul量化
-- [x] 支持matmul量化
-- [x] 支持attention
-- [x] 支持transformer encoder
