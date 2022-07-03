@@ -17,7 +17,7 @@ def get_qmin_qmax(num_bits, signed):
         qmax = 2.**num_bits - 1.
     return qmin, qmax
 
-def calcScaleZeroPoint(min_val: torch.Tensor, max_val: torch.Tensor, num_bits=8, signed=True, symmetric=False):
+def calcScaleZeroPoint(min_val: torch.Tensor, max_val: torch.Tensor, num_bits=8, signed=True, symmetric=False, eps=1e-6):
     """
     calculate scale and zero point for quantization
     """
@@ -34,9 +34,11 @@ def calcScaleZeroPoint(min_val: torch.Tensor, max_val: torch.Tensor, num_bits=8,
         zero_point = torch.where(zero_point > qmax, torch.tensor(qmax, dtype=zero_point.dtype, device=zero_point.device), zero_point)
     else:
         scale = torch.where(max_val.abs().data > min_val.abs().data, max_val.abs().data, min_val.abs().data) / max(abs(qmax), abs(qmin))
+        scale[scale == 0] = eps
         zero_point = torch.zeros(max_val.shape, dtype=min_val.dtype, device=max_val.device)
 
     zero_point.round_()
+    assert 0 not in scale
     return scale.to(min_val.device), zero_point.to(min_val.device)
 
 def quantize_tensor(x: torch.Tensor, scale, zero_point, num_bits=8, signed=True):
