@@ -16,6 +16,14 @@ from models.model import (
 from torchquanter.utils import random_seed
 
 
+def _args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset-dir', metavar='DIR', default='/tmp',
+                    help='path to dataset')
+    args = parser.parse_args()
+    return args
+
+
 def quantize_aware_training(model: Model, device, train_loader, optimizer, epoch):
     lossLayer = torch.nn.CrossEntropyLoss()
     for batch_idx, (data, target) in enumerate(train_loader, 1):
@@ -55,6 +63,7 @@ def quantize_inference(model, test_loader):
 
 if __name__ == "__main__":
     random_seed(seed=42)
+    args = _args()
 
     batch_size = 64
     epochs = 3
@@ -65,15 +74,8 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # dataset
-    if os.path.exists('/share/Documents/project/dataset'):
-        dataset_path = '/share/Documents/project/dataset/mnist'
-    elif os.path.exists('/home/LAB/leifd/dataset'):
-        dataset_path = '/home/LAB/leifd/dataset/mnist'
-    else:
-        raise Exception
-
     train_loader = torch.utils.data.DataLoader(
-        datasets.MNIST(dataset_path, train=True, download=True, 
+        datasets.MNIST(args.dataset_dir, train=True, download=True, 
                        transform=transforms.Compose([
                             transforms.ToTensor(),
                             transforms.Normalize((0.1307,), (0.3081,))
@@ -81,7 +83,7 @@ if __name__ == "__main__":
         batch_size=batch_size, shuffle=True, num_workers=1, pin_memory=True
     )
     test_loader = torch.utils.data.DataLoader(
-        datasets.MNIST(dataset_path, train=False, download=False,
+        datasets.MNIST(args.dataset_dir, train=False, download=False,
                         transform=transforms.Compose([
                             transforms.ToTensor(),
                             transforms.Normalize((0.1307,), (0.3081,))
@@ -92,7 +94,7 @@ if __name__ == "__main__":
     # 加载训练好的全精度模型
     # model = Model()
     # model = ModelBN()
-    # model = ModelBNNoReLU()
+    model = ModelBNNoReLU()
     # model = ModelLinear()
     # model = ModelShortCut()
     # model = ModelLayerNorm()
@@ -103,13 +105,13 @@ if __name__ == "__main__":
     # model = ModelMV2ShortCut()
     # model = ModelTransformerEncoder()
     # model = ModelConvEncoder()
-    model = TinyFormerSupernetDMTPOnePath(
-        num_classes=10, downsample_layers=1, mv2block_layers=1,
-        transformer_layers=1, channel=[8, 8, 8], last_channel=8,
-        transformer0_embedding_dim=[16], transformer0_dim_feedforward=[16],
-        transformer1_embedding_dim=[16], transformer1_dim_feedforward=[16],
-        choice=[1,0,0,0], first_channel=1
-    )   # 对学习率特别敏感，学习旅需要设置非常小
+    # model = TinyFormerSupernetDMTPOnePath(
+    #     num_classes=10, downsample_layers=1, mv2block_layers=1,
+    #     transformer_layers=1, channel=[8, 8, 8], last_channel=8,
+    #     transformer0_embedding_dim=[16], transformer0_dim_feedforward=[16],
+    #     transformer1_embedding_dim=[16], transformer1_dim_feedforward=[16],
+    #     choice=[1,0,0,0], first_channel=1
+    # )   # 对学习率特别敏感，学习旅需要设置非常小
 
     model = model.to(device)
     state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)

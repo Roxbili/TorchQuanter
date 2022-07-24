@@ -2,6 +2,7 @@
 
 import os, sys
 sys.path.append(os.path.join(os.getcwd(), 'examples/'))
+import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -14,6 +15,15 @@ from models.model import (
     TinyFormerSupernetDMTPOnePath
 )
 from torchquanter.utils import random_seed
+
+
+def _args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset-dir', metavar='DIR', default='/tmp',
+                    help='path to dataset')
+    args = parser.parse_args()
+    return args
+
 
 def full_inference(model, test_loader):
     correct = 0
@@ -41,6 +51,7 @@ def quantize_inference(model, test_loader):
 
 if __name__ == "__main__":
     random_seed(seed=42)
+    args = _args()
 
     # parameters
     batch_size = 64
@@ -49,15 +60,8 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # dataset
-    if os.path.exists('/share/Documents/project/dataset'):
-        dataset_path = '/share/Documents/project/dataset/mnist'
-    elif os.path.exists('/home/LAB/leifd/dataset'):
-        dataset_path = '/home/LAB/leifd/dataset/mnist'
-    else:
-        raise Exception
-
     test_loader = torch.utils.data.DataLoader(
-        datasets.MNIST(dataset_path, train=False, download=False,
+        datasets.MNIST(args.dataset_dir, train=False, download=True,
                         transform=transforms.Compose([
                             transforms.ToTensor(),
                             transforms.Normalize((0.1307,), (0.3081,))
@@ -68,7 +72,7 @@ if __name__ == "__main__":
     # 加载模型
     # model = Model()
     # model = ModelBN()
-    # model = ModelBNNoReLU()
+    model = ModelBNNoReLU()
     # model = ModelLinear()
     # model = ModelShortCut()
     # model = ModelLayerNorm()
@@ -79,13 +83,13 @@ if __name__ == "__main__":
     # model = ModelMV2ShortCut()
     # model = ModelTransformerEncoder()
     # model = ModelConvEncoder()
-    model = TinyFormerSupernetDMTPOnePath(
-        num_classes=10, downsample_layers=1, mv2block_layers=1,
-        transformer_layers=1, channel=[8, 8, 8], last_channel=8,
-        transformer0_embedding_dim=[16], transformer0_dim_feedforward=[16],
-        transformer1_embedding_dim=[16], transformer1_dim_feedforward=[16],
-        choice=[1,0,0,0], first_channel=1
-    )
+    # model = TinyFormerSupernetDMTPOnePath(
+    #     num_classes=10, downsample_layers=1, mv2block_layers=1,
+    #     transformer_layers=1, channel=[8, 8, 8], last_channel=8,
+    #     transformer0_embedding_dim=[16], transformer0_dim_feedforward=[16],
+    #     transformer1_embedding_dim=[16], transformer1_dim_feedforward=[16],
+    #     choice=[1,0,0,0], first_channel=1
+    # )
 
     model = model.to(device)
     state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)

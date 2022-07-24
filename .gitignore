@@ -3,3 +3,5 @@ __pycache__
 ckpt
 .vscode
 *.egg-info
+
+train_demo.sh
