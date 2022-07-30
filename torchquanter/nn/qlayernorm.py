@@ -195,6 +195,7 @@ class QLayerNorm_(QModule):
 
         # Interger-only LayerNorm
         mean_ = x.mean(dim=-1, keepdim=True).clamp(*get_qmin_qmax(16, signed=True))    # int16
+        mean_ = mean_.round()
         sum_ = torch.sum((x - mean_)**2, dim=-1, keepdim=True).clamp(*get_qmin_qmax(self.max_bits, signed=True))    # 裁剪到32bit范围内
         var_ = torch.floor(sum_ / x.shape[-1])
         var_[var_ == 0.] = 1.   # prevent overflow
