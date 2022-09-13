@@ -27,7 +27,7 @@ class QReLU(QModule):
 
         return x
     
-    def quantize_inference(self, x):
+    def quantize_inference(self, x, mode=None):
         x = x.clone()
         x[x < self.qi.zero_point] = self.qi.zero_point
         return x

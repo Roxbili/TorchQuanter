@@ -15,12 +15,19 @@ from models.model import (
     TinyFormerSupernetDMTPOnePath
 )
 from torchquanter.utils import random_seed
+from models.resnet import resnet18_quant
+from utils import get_loader
 
 
 def _args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset', default='mnist', help='Type of dataset')
     parser.add_argument('--dataset-dir', metavar='DIR', default='/tmp',
-                    help='path to dataset')
+                    help='Path to dataset')
+    parser.add_argument('--mean', type=float, nargs='+', default=[0.1307,], metavar='MEAN',
+                    help='Override mean pixel value of dataset')
+    parser.add_argument('--std', type=float, nargs='+', default=[0.3081,], metavar='STD',
+                        help='Override std deviation of of dataset')
     args = parser.parse_args()
     return args
 
@@ -35,10 +42,14 @@ def full_inference(model, test_loader):
     print('\nTest set: Full Model Accuracy: {:.2f}%\n'.format(100. * correct / len(test_loader.dataset)))
 
 def quantize(model: Model, loader):
+    correct = 0
     for i, (data, target) in enumerate(loader, 1):
         data, target = data.to(device), target.to(device)
         output = model.quantize_forward(data)
+        pred = output.argmax(dim=1, keepdim=True)
+        correct += pred.eq(target.view_as(pred)).sum().item()
     print('quantization finish')
+    print('Train set: quantize_forward Accuracy: {:.2f}%\n'.format(100. * correct / len(loader.dataset)))
 
 def quantize_inference(model, test_loader):
     correct = 0
@@ -60,19 +71,12 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # dataset
-    test_loader = torch.utils.data.DataLoader(
-        datasets.MNIST(args.dataset_dir, train=False, download=True,
-                        transform=transforms.Compose([
-                            transforms.ToTensor(),
-                            transforms.Normalize((0.1307,), (0.3081,))
-                        ])),
-        batch_size=batch_size, shuffle=False, num_workers=1, pin_memory=True
-    )
+    train_loader, test_loader = get_loader(args, batch_size)
 
     # 加载模型
     # model = Model()
     # model = ModelBN()
-    model = ModelBNNoReLU()
+    # model = ModelBNNoReLU()
     # model = ModelLinear()
     # model = ModelShortCut()
     # model = ModelLayerNorm()
@@ -90,6 +94,7 @@ if __name__ == "__main__":
     #     transformer1_embedding_dim=[16], transformer1_dim_feedforward=[16],
     #     choice=[1,0,0,0], first_channel=1
     # )
+    model = resnet18_quant()
 
     model = model.to(device)
     state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)
@@ -102,8 +107,9 @@ if __name__ == "__main__":
     num_bits = 8
     print('Quantization bit: %d' % num_bits)
     model.quantize(num_bits=num_bits, signed=True)
+    model = model.to(device)
     model.eval()
-    quantize(model, test_loader)
+    quantize(model, train_loader)
     model.freeze()
 
     # 量化推理

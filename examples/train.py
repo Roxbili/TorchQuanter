@@ -15,12 +15,19 @@ from models.model import (
     TinyFormerSupernetDMTPOnePath
 )
 from torchquanter.utils import random_seed
+from models.resnet import resnet18_quant
+from utils import get_loader
 
 
 def _args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset', default='mnist', help='Type of dataset')
     parser.add_argument('--dataset-dir', metavar='DIR', default='/tmp',
-                    help='path to dataset')
+                    help='Path to dataset')
+    parser.add_argument('--mean', type=float, nargs='+', default=[0.1307,], metavar='MEAN',
+                    help='Override mean pixel value of dataset')
+    parser.add_argument('--std', type=float, nargs='+', default=[0.3081,], metavar='STD',
+                        help='Override std deviation of of dataset')
     args = parser.parse_args()
     return args
 
@@ -76,28 +83,12 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # dataset
-    train_loader = torch.utils.data.DataLoader(
-        datasets.MNIST(args.dataset_dir, train=True, download=True, 
-                       transform=transforms.Compose([
-                            transforms.ToTensor(),
-                            transforms.Normalize((0.1307,), (0.3081,))
-                       ])),
-        batch_size=batch_size, shuffle=True, num_workers=1, pin_memory=True
-    )
-
-    test_loader = torch.utils.data.DataLoader(
-        datasets.MNIST(args.dataset_dir, train=False, download=True,
-                        transform=transforms.Compose([
-                            transforms.ToTensor(),
-                            transforms.Normalize((0.1307,), (0.3081,))
-                        ])),
-        batch_size=batch_size, shuffle=False, num_workers=1, pin_memory=True
-    )
+    train_loader, test_loader = get_loader(args, batch_size)
 
     # choose model
     # model = Model()
     # model = ModelBN()
-    model = ModelBNNoReLU()
+    # model = ModelBNNoReLU()
     # model = ModelLinear()
     # model = ModelShortCut()
     # model = ModelLayerNorm()
@@ -115,6 +106,7 @@ if __name__ == "__main__":
     #     transformer1_embedding_dim=[16], transformer1_dim_feedforward=[16],
     #     choice=[1,0,0,0], first_channel=1
     # )
+    model = resnet18_quant()
 
     model = model.to(device)
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)

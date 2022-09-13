@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import torch
 import torch.nn as nn
 from torchquanter.utils import calcScaleZeroPoint, quantize_tensor, dequantize_tensor, get_qmin_qmax
@@ -194,9 +195,11 @@ class QModule(nn.Module):
         M = torch.tensor([], requires_grad=False, device=device)
         self.register_buffer('M', M)
 
+    @abstractmethod
     def freeze(self):
-        pass
+        raise NotImplementedError('freeze should be implemented.')
 
+    @abstractmethod
     def quantize_inference(self, x, mode=None):
         """
         Args
