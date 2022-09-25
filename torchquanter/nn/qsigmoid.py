@@ -36,10 +36,9 @@ class QSigmoid(QModule):
 
         x = F.sigmoid(x)
 
-        # default qo.scale = 1/256, qo.zero_point=-128
         if hasattr(self, 'qo'):
+            self.qo.update(x)
             x = FakeQuantize.apply(x, self.qo)
-        
         return x
 
     def quantize_inference(self, x):
