@@ -52,6 +52,8 @@ def export_onnx(args, model):
     else:
         raise ValueError(f"Unsupported dataset type {args.dataset}")
     
+    forward_bk = model.forward
     model.forward = model.quantize_inference
     torch.onnx.export(model, dummy_input, 
         'test.onnx', opset_version=11)
+    model.forward = forward_bk

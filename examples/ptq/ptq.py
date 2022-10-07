@@ -76,7 +76,7 @@ if __name__ == "__main__":
     # 加载模型
     # model = Model()
     # model = ModelBN()
-    # model = ModelBNNoReLU()
+    model = ModelBNNoReLU()
     # model = ModelLinear()
     # model = ModelShortCut()
     # model = ModelLayerNorm()
@@ -94,11 +94,11 @@ if __name__ == "__main__":
     #     transformer1_embedding_dim=[16], transformer1_dim_feedforward=[16],
     #     choice=[1,0,0,0], first_channel=1
     # )
-    model = resnet18_quant()
+    # model = resnet18_quant()
 
     model = model.to(device)
-    # state_dict = torch.load(os.path.join(save_model_dir, f'{args.dataset}_{model._get_name()}.pth'), map_location=device)
-    # model.load_state_dict(state_dict)
+    state_dict = torch.load(os.path.join(save_model_dir, f'{args.dataset}_{model._get_name()}.pth'), map_location=device)
+    model.load_state_dict(state_dict)
 
     model.eval()
     full_inference(model, test_loader)  # 测试模型全精度的精度

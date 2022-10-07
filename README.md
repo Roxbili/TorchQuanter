@@ -32,3 +32,8 @@ Linear, Linear + ReLU
 ReLU
 MaxPool2d
 ```
+
+## Support Export ONNX
+Export onnx demo can be found in [examples/ptq/ptq.py](examples/ptq/ptq.py)
+
+<img src="img/resnet_onnx.png" width=350>
