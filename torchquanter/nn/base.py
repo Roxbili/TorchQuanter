@@ -1,7 +1,9 @@
 from abc import abstractmethod
 import torch
 import torch.nn as nn
-from torchquanter.utils import calcScaleZeroPoint, quantize_tensor, dequantize_tensor, get_qmin_qmax
+from torchquanter.utils import (
+    calcScaleZeroPoint, quantize_tensor, dequantize_tensor,
+    get_qmin_qmax, approximate_float, broadcast_dim_as)
 from torch.autograd import Function
 
 

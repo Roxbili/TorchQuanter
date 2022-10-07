@@ -119,6 +119,6 @@ if __name__ == "__main__":
         if not os.path.exists(save_model_dir):
             os.makedirs(save_model_dir)
 
-        model_save_path = os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth')
+        model_save_path = os.path.join(save_model_dir, f'{args.dataset}_{model._get_name()}.pth')
         torch.save(model.state_dict(), model_save_path)
         print(f'model is saved to {model_save_path}')

@@ -127,7 +127,7 @@ if __name__ == "__main__":
     model = resnet18_quant()
 
     model = model.to(device)
-    state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)
+    state_dict = torch.load(os.path.join(save_model_dir, f'{args.dataset}_{model._get_name()}.pth'), map_location=device)
     model.load_state_dict(state_dict)
 
     model.eval()
@@ -148,7 +148,7 @@ if __name__ == "__main__":
 
     # save qat model
     model.eval()
-    torch.save(model.state_dict(), os.path.join(save_model_dir, f'mnist_{model._get_name()}_qat.pth'))
+    torch.save(model.state_dict(), os.path.join(save_model_dir, f'{args.dataset}_{model._get_name()}_qat.pth'))
 
     # fp32 -> int8/uint8
     model.freeze()

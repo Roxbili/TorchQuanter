@@ -42,3 +42,16 @@ def get_loader(args, batch_size):
     else:
         raise ValueError(f"Unsupported dataset type {args.dataset}")
     return train_loader, test_loader
+
+def export_onnx(args, model):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if args.dataset == 'mnist':
+        dummy_input = torch.rand(1, 1, 28, 28).to(device)
+    elif args.dataset == 'cifar10':
+        dummy_input = torch.rand(1, 3, 32, 32).to(device)
+    else:
+        raise ValueError(f"Unsupported dataset type {args.dataset}")
+    
+    model.forward = model.quantize_inference
+    torch.onnx.export(model, dummy_input, 
+        'test.onnx', opset_version=11)

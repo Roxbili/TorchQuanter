@@ -73,16 +73,27 @@ class QAdd(QModule):
             out = x1 + x2
             out.round_() 
         elif mode == 'cmsis_nn':
-            multiplier1, shift1 = approximate_float(self.M1)
-            round1 = 1 << (shift1 - 1)
-            multiplier2, shift2 = approximate_float(self.M2)
-            round2 = 1 << (shift2 - 1)
-
-            x1 = (x1 * multiplier1 + round1) >> (31 - shift1)
-            x2 = (x2 * multiplier2 + round2) >> (31 - shift2)
-            out = x1 + x2
+            out = ReScaleAdd.apply(x1, x2, self.M1, self.M2)
         else:
             raise Exception(f'Unknown mode {mode}')
         out = out + self.qo.zero_point        
         out.clamp_(self.qo.qmin, self.qo.qmax).round_()
+        return out
+        
+
+class ReScaleAdd(torch.autograd.Function):
+    @staticmethod
+    def symbolic(g, x1, x2, M1, M2):
+        return g.op("ReScale", x1, x2, M1, M2)
+
+    @staticmethod
+    def forward(ctx, x1, x2, M1, M2):
+        multiplier1, shift1 = approximate_float(M1)
+        round1 = 1 << (shift1 - 1)
+        multiplier2, shift2 = approximate_float(M2)
+        round2 = 1 << (shift2 - 1)
+
+        x1 = (x1 * multiplier1 + round1) >> (31 - shift1)
+        x2 = (x2 * multiplier2 + round2) >> (31 - shift2)
+        out = x1 + x2
         return out

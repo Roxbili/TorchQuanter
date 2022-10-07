@@ -74,12 +74,23 @@ class QMul(QModule):
             out = out * self.M
             out.round_() 
         elif mode == 'cmsis_nn':
-            multiplier, shift = approximate_float(self.M)
-            round_ = 1 << (shift - 1)
-            out = torch.mul(x1, x2)
-            out = (out * multiplier + round_) >> (31 - shift)
+            out = ReScaleMul.apply(x1, x2, self.M)
         else:
             raise Exception(f'Unknown mode {mode}')
         out = out + self.qo.zero_point        
         out.clamp_(self.qo.qmin, self.qo.qmax).round_()
+        return out
+
+
+class ReScaleMul(torch.autograd.Function):
+    @staticmethod
+    def symbolic(g, x1, x2, M):
+        return g.op("ReScale", x1, x2, M)
+
+    @staticmethod
+    def forward(ctx, x1, x2, M):
+        multiplier, shift = approximate_float(M)
+        round_ = 1 << (shift - 1)
+        out = torch.mul(x1, x2)
+        out = (out * multiplier + round_) >> (31 - shift)
         return out

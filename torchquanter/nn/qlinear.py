@@ -65,11 +65,22 @@ class QLinear(QModule):
             x = self.M * x
             x.round_() 
         elif mode == 'cmsis_nn':
-            multiplier, shift = approximate_float(self.M)
-            round_ = 1 << (shift - 1)
-            x = (x * multiplier + round_) >> (31 - shift)
+            x = ReScaleLinear.apply(x, self.M)
         else:
             raise Exception(f'Unknown mode {mode}')
         x = x + self.qo.zero_point
         x.clamp_(self.qo.qmin, self.qo.qmax).round_()
+        return x
+
+
+class ReScaleLinear(torch.autograd.Function):
+    @staticmethod
+    def symbolic(g, x, M):
+        return g.op("ReScale", x, M)
+
+    @staticmethod
+    def forward(ctx, x, M):
+        multiplier, shift = approximate_float(M)
+        round_ = 1 << (shift - 1)
+        x = (x * multiplier + round_) >> (31 - shift)
         return x

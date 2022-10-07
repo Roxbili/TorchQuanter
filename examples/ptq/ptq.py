@@ -16,7 +16,7 @@ from models.model import (
 )
 from torchquanter.utils import random_seed
 from models.resnet import resnet18_quant
-from utils import get_loader
+from utils import get_loader, export_onnx
 
 
 def _args():
@@ -97,8 +97,8 @@ if __name__ == "__main__":
     model = resnet18_quant()
 
     model = model.to(device)
-    state_dict = torch.load(os.path.join(save_model_dir, f'mnist_{model._get_name()}.pth'), map_location=device)
-    model.load_state_dict(state_dict)
+    # state_dict = torch.load(os.path.join(save_model_dir, f'{args.dataset}_{model._get_name()}.pth'), map_location=device)
+    # model.load_state_dict(state_dict)
 
     model.eval()
     full_inference(model, test_loader)  # 测试模型全精度的精度
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     quantize_inference(model, test_loader)
 
     # 保存参数
-    save_path = os.path.join(save_model_dir, f'mnist_{model._get_name()}_ptq.pth')
+    save_path = os.path.join(save_model_dir, f'{args.dataset}_{model._get_name()}_ptq.pth')
     torch.save(model.state_dict(), save_path)
 
     # 加载参数
@@ -125,3 +125,10 @@ if __name__ == "__main__":
 
     # 量化推理
     quantize_inference(model, test_loader)
+
+    try:
+        export_onnx(args, model)
+    except torch.onnx.CheckerError:
+        pass
+    except Exception as e:
+        raise e
