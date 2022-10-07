@@ -13,3 +13,4 @@ from .qmean import QMean
 from .qsub import QSub
 from .qsqrt import QSqrt
 from .qdiv import QDiv
+from .qadaptive_avgpool2d import QAdaptiveAvgPool2d
