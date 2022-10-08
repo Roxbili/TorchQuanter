@@ -49,6 +49,7 @@ class QMul(QModule):
         if qo is not None:
             self.qo = qo
         self.M = self.qi1.scale * self.qi2.scale * self.mul_const / self.qo.scale
+        return self.qo
 
     def forward(self, x1, x2):
         if hasattr(self, 'qi1'):

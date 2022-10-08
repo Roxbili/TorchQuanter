@@ -52,6 +52,7 @@ class QSub(QModule):
             self.qo = qo
         self.M1 = self.qi1.scale / self.qo.scale
         self.M2 = self.qi2.scale / self.qo.scale
+        return self.qo
 
     def forward(self, x1, x2):
         if hasattr(self, 'qi1'):

@@ -31,6 +31,7 @@ class QSqrt(QModule):
         if qo is not None:
             self.qo = qo
         self.M = torch.sqrt(self.qi.scale) / self.qo.scale
+        return self.qo
 
     def forward(self, x, qi=None):
         if not hasattr(self, 'qi') and qi is None:

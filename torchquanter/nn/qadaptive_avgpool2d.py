@@ -29,6 +29,7 @@ class QAdaptiveAvgPool2d(QModule):
         if qo is not None:
             self.qo = qo
         self.M = self.qi.scale / self.qo.scale
+        return self.qo
 
     def forward(self, x):
         if hasattr(self, 'qi'):

@@ -1,3 +1,4 @@
+from pickletools import read_uint1
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -36,6 +37,7 @@ class QNorm(QModule):
             self.qo = qo
 
         self.M = 1 / (self.qo.scale * 2**(self.max_bits - 2))
+        return self.qo
 
     def forward(self, x, qi=None):
         """

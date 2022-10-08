@@ -149,6 +149,7 @@ class QLayerNorm_(QModule):
                                                         zero_point=0, num_bits=32, signed=True)
         else:
             self.M = 1 / (self.qo.scale * 2**(8 - 1))  # 这里非常特殊，没有self.qi.scale，因为输入标准化后完全消除了qi.scale，导致之后无法提取qi.scale了
+        return self.qo
 
     def forward(self, x, qi=None):
         """

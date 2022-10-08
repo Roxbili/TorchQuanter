@@ -17,6 +17,7 @@ class QReLU(QModule):
 
         if qi is not None:
             self.qi = qi
+        return self.qi
 
     def forward(self, x):
         if hasattr(self, 'qi'):

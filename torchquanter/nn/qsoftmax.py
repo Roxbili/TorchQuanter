@@ -36,6 +36,7 @@ class QSoftmax(QModule):
             self.qi = qi
         if qo is not None:
             self.qo = qo
+        return self.qo
 
     def forward(self, x):
         if hasattr(self, 'qi'):

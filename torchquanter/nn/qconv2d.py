@@ -40,6 +40,7 @@ class QConv2d(QModule):
         if self.conv_module.bias is not None:
             self.conv_module.bias.data = quantize_tensor(self.conv_module.bias.data, scale=self.qi.scale * self.qw.scale,
                                                          zero_point=0, num_bits=32, signed=True)
+        return self.qo
 
     def forward(self, x):
         if hasattr(self, 'qi'):
