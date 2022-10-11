@@ -119,6 +119,7 @@ class QLayerNorm(QModule):
         self.max_bits = max_bits
         self.layernorm_module = layernorm_module
         self.signed = signed
+        self.scale = 2**(8 - 1)
         self.first_time = True
 
         if self.layernorm_module.elementwise_affine:
@@ -142,14 +143,14 @@ class QLayerNorm(QModule):
             self.qo = qo
 
         if self.layernorm_module.elementwise_affine:
-            self.M = self.qw.scale / (self.qo.scale * 2**(8 - 1))  # 这里非常特殊，没有self.qi.scale，因为输入标准化后完全消除了qi.scale，导致之后无法提取qi.scale了
+            self.M = self.qw.scale / (self.qo.scale * self.scale)  # 这里非常特殊，没有self.qi.scale，因为输入标准化后完全消除了qi.scale，导致之后无法提取qi.scale了
             self.layernorm_module.weight.data = self.qw.quantize_tensor(self.layernorm_module.weight.data)
             self.layernorm_module.weight.data = self.layernorm_module.weight.data - self.qw.zero_point    # 这样减法后可能无法保证范围在 8bit 内
 
-            self.layernorm_module.bias.data = quantize_tensor(self.layernorm_module.bias.data, scale=self.qw.scale / 2**(8 - 1),
+            self.layernorm_module.bias.data = quantize_tensor(self.layernorm_module.bias.data, scale=self.qw.scale / self.scale,
                                                         zero_point=0, num_bits=32, signed=True)
         else:
-            self.M = 1 / (self.qo.scale * 2**(8 - 1))  # 这里非常特殊，没有self.qi.scale，因为输入标准化后完全消除了qi.scale，导致之后无法提取qi.scale了
+            self.M = 1 / (self.qo.scale * self.scale)  # 这里非常特殊，没有self.qi.scale，因为输入标准化后完全消除了qi.scale，导致之后无法提取qi.scale了
         return self.qo
 
     def forward(self, x, qi=None):
@@ -195,20 +196,24 @@ class QLayerNorm(QModule):
     def quantize_inference(self, x, mode=None):
         x = x - self.qi.zero_point
 
-        # Interger-only LayerNorm
-        mean_ = x.mean(dim=-1, keepdim=True).clamp(*get_qmin_qmax(16, signed=True))    # int16
-        mean_ = mean_.round()
-        sum_ = torch.sum((x - mean_)**2, dim=-1, keepdim=True).clamp(*get_qmin_qmax(self.max_bits, signed=True))    # 裁剪到32bit范围内
-        var_ = torch.floor(sum_ / x.shape[-1])
-        var_[var_ == 0.] = 1.   # prevent overflow
-        # std_ = sqrt_interger(var_)  # 比较费时间，此处快速评估无需使用
-        std_ = torch.sqrt(var_).floor()
-        factor = torch.floor(2**(8 - 1) / std_)
-        x = torch.floor(torch.clamp((x - mean_) * factor, *get_qmin_qmax(16, signed=True)))
-
         if self.layernorm_module.elementwise_affine:
-            x = x * self.layernorm_module.weight.data + self.layernorm_module.bias.data
-            x = x.clamp(*get_qmin_qmax(self.max_bits, signed=True))
+            x = QLayerNormAffine.apply(
+                x,
+                self.layernorm_module.weight,
+                self.layernorm_module.bias,
+                self.layernorm_module.eps,
+                list(range(-1, -len(self.layernorm_module.normalized_shape) - 1, -1)),
+                self.scale,
+                self.max_bits
+            )
+        else:
+            x = QLayerNormNoAffine.apply(
+                x,
+                self.layernorm_module.eps,
+                list(range(-1, -len(self.layernorm_module.normalized_shape) - 1, -1)),
+                self.scale,
+                self.max_bits
+            )
 
         if mode is None:
             x = self.M * x
@@ -232,6 +237,65 @@ class ReScaleLayerNorm(torch.autograd.Function):
         multiplier, shift = approximate_float(M)
         round_ = 1 << (shift - 1)
         x = (x * multiplier + round_) >> (31 - shift)
+        return x
+
+
+class QLayerNormAffine(torch.autograd.Function):
+    @staticmethod
+    def symbolic(g, x, weight, bias, eps, axis, scale, max_bits):
+        return g.op(
+            "QLayerNorm",
+            x,
+            weight,
+            bias,
+            epsilon_f=eps,
+            axis_i=axis,
+            scale_i=scale,
+            max_bits_i=max_bits
+        )
+
+    @staticmethod
+    def forward(ctx, x, weight, bias, eps, axis, scale, max_bits):
+        # Interger-only LayerNorm
+        mean_ = x.mean(dim=-1, keepdim=True).clamp(*get_qmin_qmax(16, signed=True))    # int16
+        mean_ = mean_.round()
+        sum_ = torch.sum((x - mean_)**2, dim=-1, keepdim=True).clamp(*get_qmin_qmax(max_bits, signed=True))    # 裁剪到32bit范围内
+        var_ = torch.floor(sum_ / x.shape[-1])
+        var_[var_ == 0.] = 1.   # prevent overflow
+        # std_ = sqrt_interger(var_)  # 比较费时间，此处快速评估无需使用
+        std_ = torch.sqrt(var_).floor()
+        factor = torch.floor(scale / std_)
+        x = torch.floor(torch.clamp((x - mean_) * factor, *get_qmin_qmax(16, signed=True)))
+
+        x = x * weight.data + bias.data
+        x = x.clamp(*get_qmin_qmax(max_bits, signed=True))
+        return x
+
+
+class QLayerNormNoAffine(torch.autograd.Function):
+    @staticmethod
+    def symbolic(g, x, eps, axis, scale, max_bits):
+        return g.op(
+            "QLayerNorm",
+            x,
+            epsilon_f=eps,
+            axis_i=axis,
+            scale_i=scale,
+            max_bits_i=max_bits
+        )
+
+    @staticmethod
+    def forward(ctx, x, eps, axis, scale, max_bits):
+        # Interger-only LayerNorm
+        mean_ = x.mean(dim=-1, keepdim=True).clamp(*get_qmin_qmax(16, signed=True))    # int16
+        mean_ = mean_.round()
+        sum_ = torch.sum((x - mean_)**2, dim=-1, keepdim=True).clamp(*get_qmin_qmax(max_bits, signed=True))    # 裁剪到32bit范围内
+        var_ = torch.floor(sum_ / x.shape[-1])
+        var_[var_ == 0.] = 1.   # prevent overflow
+        # std_ = sqrt_interger(var_)  # 比较费时间，此处快速评估无需使用
+        std_ = torch.sqrt(var_).floor()
+        factor = torch.floor(scale / std_)
+        x = torch.floor(torch.clamp((x - mean_) * factor, *get_qmin_qmax(max_bits, signed=True)))
         return x
 
 
