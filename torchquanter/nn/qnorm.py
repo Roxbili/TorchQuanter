@@ -11,8 +11,8 @@ class QNorm(QModule):
     (x - mean) / var
     """
 
-    def __init__(self, eps=1e-5, qi=True, qo=True, num_bits=8, max_bits=32, signed=True):
-        super(QNorm, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
+    def __init__(self, eps=1e-5, qi=True, qo=True, num_bits=8, max_bits=32, signed=True, symmetric_feature=False):
+        super(QNorm, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         self.num_bits = num_bits
         self.max_bits = max_bits
         self.signed = signed

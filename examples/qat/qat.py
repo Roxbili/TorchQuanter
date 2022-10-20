@@ -11,7 +11,7 @@ from models.model import (
     Model, ModelBN, ModelLinear, ModelShortCut, ModelBNNoReLU,
     ModelLayerNorm, ModelAttention, ModelMV2, ModelMV2Naive, ModelDepthwise,
     ModelMV2ShortCut, ModelTransformerEncoder, ModelConvEncoder,
-    TinyFormerSupernetDMTPOnePath
+    TinyFormerSupernetDMTPOnePath, ModelBNSymmetric
 )
 from torchquanter.utils import random_seed
 from models.resnet import resnet18_quant

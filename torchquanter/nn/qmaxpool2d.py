@@ -7,8 +7,8 @@ from torchquanter.utils import quantize_tensor
 
 class QMaxPool2d(QModule):
 
-    def __init__(self, maxpool2d_module: nn.MaxPool2d, qi=False, num_bits=8, signed=True):
-        super().__init__(qi=qi, num_bits=num_bits, signed=signed)
+    def __init__(self, maxpool2d_module: nn.MaxPool2d, qi=False, num_bits=8, signed=True, symmetric_feature=False):
+        super().__init__(qi=qi, num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         self.maxpool2d_module = maxpool2d_module
 
     def freeze(self, qi=None):

@@ -10,17 +10,17 @@ class QMul(QModule):
     Dot produc function
     """
 
-    def __init__(self, mul_const=None, qi1=True, qi2=True, qo=True, num_bits=8, signed=True):
+    def __init__(self, mul_const=None, qi1=True, qi2=True, qo=True, num_bits=8, signed=True, symmetric_feature=False):
         """
         Args
         ----------
         mul_const: if not None, x1 * x2 * mul_const
         """
-        super(QMul, self).__init__(qi=False, qo=qo, num_bits=num_bits, signed=signed)
+        super(QMul, self).__init__(qi=False, qo=qo, num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         if qi1:
-            self.qi1 = QParamIO(num_bits=num_bits, signed=signed, symmetric=False)
+            self.qi1 = QParamIO(num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         if qi2:
-            self.qi2 = QParamIO(num_bits=num_bits, signed=signed, symmetric=False)
+            self.qi2 = QParamIO(num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         self.mul_const = mul_const if mul_const is not None else 1.
         self.num_bits = num_bits
         self.signed = signed

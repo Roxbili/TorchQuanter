@@ -10,17 +10,17 @@ class QMatmul(QModule):
     Dot produc function
     """
 
-    def __init__(self, qi1=True, qi2=True, qo=True, mul_const=None, num_bits=8, signed=True):
+    def __init__(self, qi1=True, qi2=True, qo=True, mul_const=None, num_bits=8, signed=True, symmetric_feature=False):
         """
         Args
         ----------
         const: if not None, torch.matmul(x1, x2) * const
         """
-        super(QMatmul, self).__init__(qi=False, qo=qo, num_bits=num_bits, signed=signed)
+        super(QMatmul, self).__init__(qi=False, qo=qo, num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         if qi1:
-            self.qi1 = QParamIO(num_bits=num_bits, signed=signed, symmetric=False)
+            self.qi1 = QParamIO(num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         if qi2:
-            self.qi2 = QParamIO(num_bits=num_bits, signed=signed, symmetric=False)
+            self.qi2 = QParamIO(num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         self.mul_const = mul_const if mul_const is not None else 1.
         self.num_bits = num_bits
         self.signed = signed

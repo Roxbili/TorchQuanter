@@ -6,8 +6,8 @@ from torchquanter.utils import quantize_tensor, approximate_float
 
 class QMean(QModule):
 
-    def __init__(self, dim=-1, keepdim=False, qi=True, qo=True, num_bits=8, signed=True):
-        super(QMean, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
+    def __init__(self, dim=-1, keepdim=False, qi=True, qo=True, num_bits=8, signed=True, symmetric_feature=False):
+        super(QMean, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         self.dim = dim
         self.keepdim = keepdim
         self.num_bits = num_bits

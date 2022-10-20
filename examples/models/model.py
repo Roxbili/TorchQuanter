@@ -19,8 +19,7 @@ from torchquanter.nn import (
     QLinear, 
     QConvBNReLU, 
     QAdd, 
-    # QLayerNorm, 
-    QLayerNorm_ as QLayerNorm,
+    QLayerNorm, 
     QSoftmax, 
     QMul, 
     QMatmul,
@@ -119,12 +118,14 @@ class ModelBN(nn.Module):
         x = self.fc(x)
         return x
 
-    def quantize(self, num_bits=8, signed=True):
-        self.qconv1 = QConvBNReLU(self.block[0], self.block[1], qi=True, qo=True, num_bits=num_bits, signed=signed, qmode='per_channel')
-        self.qmaxpool1 = QMaxPool2d(self.block[3], signed=signed)
-        self.qconv2 = QConvBNReLU(self.block[4], self.block[5], qi=False, qo=True, num_bits=num_bits, signed=signed, qmode='per_channel')
-        self.qmaxpool2 = QMaxPool2d(self.block[7], signed=signed)
-        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits, signed=signed)
+    def quantize(self, num_bits=8, signed=True, symmetric_feature=False):
+        self.qconv1 = QConvBNReLU(self.block[0], self.block[1], qi=True, qo=True, num_bits=num_bits, 
+            signed=signed, qmode='per_channel', symmetric_feature=symmetric_feature)
+        self.qmaxpool1 = QMaxPool2d(self.block[3], signed=signed, symmetric_feature=symmetric_feature)
+        self.qconv2 = QConvBNReLU(self.block[4], self.block[5], qi=False, qo=True,
+            num_bits=num_bits, signed=signed, qmode='per_channel', symmetric_feature=symmetric_feature)
+        self.qmaxpool2 = QMaxPool2d(self.block[7], signed=signed, symmetric_feature=symmetric_feature)
+        self.qfc = QLinear(self.fc, qi=False, qo=True, num_bits=num_bits, signed=signed, symmetric_feature=symmetric_feature)
 
     def quantize_forward(self, x):
         x = self.qconv1(x)

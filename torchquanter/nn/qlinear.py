@@ -8,8 +8,8 @@ from torchquanter.utils import quantize_tensor, approximate_float
 class QLinear(QModule):
 
     def __init__(self, fc_module: nn.Linear, relu=False, qi=True, qo=True, num_bits=8,
-                 signed=True, symmetric_weight=True):
-        super(QLinear, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
+                 signed=True, symmetric_feature=False, symmetric_weight=True):
+        super(QLinear, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         self.num_bits = num_bits
         self.signed = signed
         self.fc_module = fc_module
@@ -71,6 +71,8 @@ class QLinear(QModule):
             raise Exception(f'Unknown mode {mode}')
         x = x + self.qo.zero_point
         x.clamp_(self.qo.qmin, self.qo.qmax).round_()
+        x.clamp_(0 if self.qo.symmetric and self.relu else self.qo.qmin,
+                 self.qo.qmax).round_()
         return x
 
 

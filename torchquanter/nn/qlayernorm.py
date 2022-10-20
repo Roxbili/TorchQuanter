@@ -113,8 +113,8 @@ class QLayerNorm(QModule):
     """
 
     def __init__(self, layernorm_module: nn.LayerNorm, qi=True, qo=True, num_bits=8, max_bits=32,
-                 signed=True, symmetric_weight=True):
-        super(QLayerNorm, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
+                 signed=True, symmetric_feature=False, symmetric_weight=True):
+        super(QLayerNorm, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         self.num_bits = num_bits
         self.max_bits = max_bits
         self.layernorm_module = layernorm_module

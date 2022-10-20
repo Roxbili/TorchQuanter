@@ -7,9 +7,9 @@ from torchquanter.utils import quantize_tensor, approximate_float, sqrt_interger
 
 class QSqrt(QModule):
 
-    def __init__(self, qi=True, qo=True, num_bits=8, signed=True):
+    def __init__(self, qi=True, qo=True, num_bits=8, signed=True, symmetric_feature=False):
         assert qo == True
-        super(QSqrt, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
+        super(QSqrt, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         self.num_bits = num_bits
         self.signed = signed
         self.first_time = True

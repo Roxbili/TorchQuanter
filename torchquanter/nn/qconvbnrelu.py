@@ -10,8 +10,8 @@ from torchquanter.utils import quantize_tensor, broadcast_dim_as, approximate_fl
 class QConvBNReLU(QModule):
 
     def __init__(self, conv_module: nn.Conv2d, bn_module: nn.BatchNorm2d, relu=True, qi=True, qo=True, 
-                 num_bits=8, signed=True, symmetric_weight=True, qmode='per_channel'):
-        super(QConvBNReLU, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
+                 num_bits=8, signed=True, symmetric_feature=False, symmetric_weight=True, qmode='per_channel'):
+        super(QConvBNReLU, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         self.num_bits = num_bits
         self.signed = signed
         self.conv_module = conv_module
@@ -126,5 +126,6 @@ class QConvBNReLU(QModule):
         else:
             raise Exception(f'Unknown mode {mode}')
         x = x + self.qo.zero_point
-        x.clamp_(self.qo.qmin, self.qo.qmax).round_()
+        x.clamp_(0 if self.qo.symmetric and self.relu else self.qo.qmin,
+                 self.qo.qmax).round_()
         return x

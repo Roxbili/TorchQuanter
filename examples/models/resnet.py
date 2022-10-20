@@ -62,29 +62,33 @@ class BasicBlock(nn.Module):
         return nn.ReLU(inplace=True)(self.residual_function(x) +
                                      self.shortcut(x))
 
-    def quantize(self, first_qi=True, num_bits=8, signed=True):
+    def quantize(self, first_qi=True, num_bits=8, signed=True, symmetric_feature=False):
         self.qresidual_function = nn.Sequential(
             QConvBNReLU(
                 self.residual_function[0],
                 self.residual_function[1],
                 qi=first_qi, qo=True,
-                num_bits=num_bits, signed=signed
+                num_bits=num_bits, signed=signed,
+                symmetric_feature=symmetric_feature
             ),
             QConvBNReLU(
                 self.residual_function[3],
                 self.residual_function[4],
                 relu=False, qi=False, qo=True,
-                num_bits=num_bits, signed=signed
+                num_bits=num_bits, signed=signed,
+                symmetric_feature=symmetric_feature
             )
         )
         if len(self.shortcut) > 0:
             self.qshortcut = QConvBNReLU(
                 self.shortcut[0], self.shortcut[1], relu=False,
                 qi=False, qo=True,
-                num_bits=num_bits, signed=signed
+                num_bits=num_bits, signed=signed,
+                symmetric_feature=symmetric_feature
             )
-        self.qadd = QAdd(qi1=False, qi2=False, qo=True, num_bits=num_bits, signed=signed)
-        self.qrelu = QReLU(qi=False, num_bits=num_bits, signed=signed)
+        self.qadd = QAdd(qi1=False, qi2=False, qo=True, num_bits=num_bits,
+            signed=signed, symmetric_feature=symmetric_feature)
+        self.qrelu = QReLU(qi=False, num_bits=num_bits, signed=signed, symmetric_feature=symmetric_feature)
 
     def quantize_forward(self, x):
         x1 = self.qresidual_function(x)
@@ -216,25 +220,32 @@ class ResNet(nn.Module):
 
         return output
 
-    def quantize(self, num_bits=8, signed=True):
+    def quantize(self, num_bits=8, signed=True, symmetric_feature=False):
         self.qconv1 = QConvBNReLU(self.conv1[0], self.conv1[1], qi=True,
-                                  num_bits=num_bits, signed=signed)
+                                  num_bits=num_bits, signed=signed,
+                                  symmetric_feature=symmetric_feature)
         # conv2_x
         for block in self.conv2_x:
-            block.quantize(first_qi=False, num_bits=num_bits, signed=signed)
+            block.quantize(first_qi=False, num_bits=num_bits, signed=signed,
+                           symmetric_feature=symmetric_feature)
         # conv3_x
         for block in self.conv3_x:
-            block.quantize(first_qi=False, num_bits=num_bits, signed=signed)
+            block.quantize(first_qi=False, num_bits=num_bits, signed=signed,
+                           symmetric_feature=symmetric_feature)
         # conv4_x
         for block in self.conv4_x:
-            block.quantize(first_qi=False, num_bits=num_bits, signed=signed)
+            block.quantize(first_qi=False, num_bits=num_bits, signed=signed,
+                           symmetric_feature=symmetric_feature)
         # conv5_x
         for block in self.conv5_x:
-            block.quantize(first_qi=False, num_bits=num_bits, signed=signed)
+            block.quantize(first_qi=False, num_bits=num_bits, signed=signed,
+                           symmetric_feature=symmetric_feature)
         self.qavg_pool = QMean(dim=[-1, -2], keepdim=True, qi=False, qo=True,
-                               num_bits=num_bits, signed=signed)
+                               num_bits=num_bits, signed=signed,
+                               symmetric_feature=symmetric_feature)
         self.qfc = QLinear(self.fc, relu=False, qi=False, qo=True,
-                           num_bits=num_bits, signed=signed)
+                           num_bits=num_bits, signed=signed,
+                           symmetric_feature=symmetric_feature)
 
     def quantize_forward(self, x):
         x = self.qconv1(x)

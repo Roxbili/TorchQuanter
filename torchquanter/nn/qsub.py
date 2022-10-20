@@ -7,17 +7,17 @@ from torchquanter.utils import broadcast_dim_as, approximate_float
 
 class QSub(QModule):
 
-    def __init__(self, qi1=True, qi2=True, qo=True, num_bits=8, signed=True):
+    def __init__(self, qi1=True, qi2=True, qo=True, num_bits=8, signed=True, symmetric_feature=False):
         """
         return
         ----------
         output: x1 - x2
         """
-        super(QSub, self).__init__(qi=False, qo=qo, num_bits=num_bits, signed=signed)
+        super(QSub, self).__init__(qi=False, qo=qo, num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         if qi1:
-            self.qi1 = QParamIO(num_bits=num_bits, signed=signed, symmetric=False)
+            self.qi1 = QParamIO(num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         if qi2:
-            self.qi2 = QParamIO(num_bits=num_bits, signed=signed, symmetric=False)
+            self.qi2 = QParamIO(num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         self.num_bits = num_bits
         self.signed = signed
 
