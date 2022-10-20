@@ -60,8 +60,8 @@ class QAvgPool2d(QModule):
 
 class QAdaptiveAvgPool2d(QModule):
 
-    def __init__(self, output_size, qi=True, qo=True, num_bits=8, signed=True):
-        super(QAdaptiveAvgPool2d, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed)
+    def __init__(self, output_size, qi=True, qo=True, num_bits=8, signed=True, symmetric_feature=False):
+        super(QAdaptiveAvgPool2d, self).__init__(qi=qi, qo=qo, num_bits=num_bits, signed=signed, symmetric=symmetric_feature)
         self.output_size = output_size
         self.num_bits = num_bits
         self.signed = signed
