@@ -38,6 +38,7 @@ class QConcat(QModule):
             raise ValueError('qo has been provided in init function.')
         if not hasattr(self, 'qo') and qo is None:
             raise ValueError('qo is not existed, should be provided.')
+        self.freeze_flag = True
 
         if qi1 is not None:
             self.qi1 = qi1
@@ -56,6 +57,8 @@ class QConcat(QModule):
         if hasattr(self, 'qi2'):
             self.qi2.update(x2)
             x2 = FakeQuantize.apply(x2, self.qi2)
+        if self.freeze_flag:
+            raise Exception(f'{self._get_name()} has been frozen')
 
         out = torch.cat((x1, x2), self.dim)
 
@@ -74,7 +77,7 @@ class QConcat(QModule):
             out = torch.cat((x1, x2), dim=self.dim)
             out.round_() 
         elif mode == 'cmsis_nn':
-            out = ReScaleConcat.apply(x1, x2, self.M1, self.M2)
+            out = ReScaleConcat.apply(x1, x2, self.M1, self.M2, self.dim)
         else:
             raise Exception(f'Unknown mode {mode}')
         out = out + self.qo.zero_point        

@@ -16,6 +16,7 @@ class QMaxPool2d(QModule):
             raise ValueError('qi has been provided in init function.')
         if not hasattr(self, 'qi') and qi is None:
             raise ValueError('qi is not existed, should be provided.')
+        self.freeze_flag = True
 
         if qi is not None:
             self.qi = qi
@@ -25,6 +26,8 @@ class QMaxPool2d(QModule):
         if hasattr(self, 'qi'):
             self.qi.update(x)
             x = FakeQuantize.apply(x, self.qi)
+        if self.freeze_flag:
+            raise Exception(f'{self._get_name()} has been frozen')
 
         x = F.max_pool2d(x, self.maxpool2d_module.kernel_size, 
                         self.maxpool2d_module.stride, self.maxpool2d_module.padding)

@@ -194,6 +194,7 @@ class QModule(nn.Module):
 
         M = torch.tensor([], requires_grad=False)
         self.register_buffer('M', M)
+        self.freeze_flag = False
 
     @abstractmethod
     def freeze(self):

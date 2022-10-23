@@ -14,6 +14,7 @@ class QReLU(QModule):
             raise ValueError('qi has been provided in init function.')
         if not hasattr(self, 'qi') and qi is None:
             raise ValueError('qi is not existed, should be provided.')
+        self.freeze_flag = True
 
         if qi is not None:
             self.qi = qi
@@ -23,6 +24,8 @@ class QReLU(QModule):
         if hasattr(self, 'qi'):
             self.qi.update(x)
             x = FakeQuantize.apply(x, self.qi)
+        if self.freeze_flag:
+            raise Exception(f'{self._get_name()} has been frozen')
 
         x = F.relu(x)
 

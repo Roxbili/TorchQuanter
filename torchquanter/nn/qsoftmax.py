@@ -30,6 +30,7 @@ class QSoftmax(QModule):
             raise ValueError('qo has been provided in init function.')
         if not hasattr(self, 'qo') and qo is None:
             raise ValueError('qo is not existed, should be provided.')
+        self.freeze_flag = True
 
         if qi is not None:
             self.qi = qi
@@ -41,6 +42,8 @@ class QSoftmax(QModule):
         if hasattr(self, 'qi'):
             self.qi.update(x)
             x = FakeQuantize.apply(x, self.qi)
+        if self.freeze_flag:
+            raise Exception(f'{self._get_name()} has been frozen')
 
         x = F.softmax(x, dim=self.dim)
 

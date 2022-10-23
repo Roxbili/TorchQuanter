@@ -37,6 +37,7 @@ class QAdd(QModule):
             raise ValueError('qo has been provided in init function.')
         if not hasattr(self, 'qo') and qo is None:
             raise ValueError('qo is not existed, should be provided.')
+        self.freeze_flag = True
 
         if qi1 is not None:
             self.qi1 = qi1
@@ -55,6 +56,8 @@ class QAdd(QModule):
         if hasattr(self, 'qi2'):
             self.qi2.update(x2)
             x2 = FakeQuantize.apply(x2, self.qi2)
+        if self.freeze_flag:
+            raise Exception(f'{self._get_name()} has been frozen')
 
         out = x1 + x2
 
