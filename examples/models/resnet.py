@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 from torch.nn import LayerNorm
 from torch.nn import functional as F
-from torchquanter.nn import QConvBNReLU, QAdd, QReLU, QMean, QLinear
+from torchquanter.nn import QConvBNReLU, QAdd, QReLU, QMean, QLinear, QAdaptiveAvgPool2d
 
 
 class BasicBlock(nn.Module):
@@ -101,14 +101,15 @@ class BasicBlock(nn.Module):
         return x
 
     def freeze(self, qi=None):
-        self.qresidual_function[0].freeze(qi=qi)
-        self.qresidual_function[1].freeze(qi=self.qresidual_function[0].qo)
+        qo_1 = self.qresidual_function[0].freeze(qi=qi)
+        qo_1 = self.qresidual_function[1].freeze(qi=qo_1)
         if len(self.shortcut) > 0:
-            self.qshortcut.freeze(qi=qi)
-            self.qadd.freeze(qi1=self.qresidual_function[1].qo, qi2=self.qshortcut.qo)
+            qo_2 = self.qshortcut.freeze(qi=qi)
+            qo = self.qadd.freeze(qi1=qo_1, qi2=qo_2)
         else:
-            self.qadd.freeze(qi1=self.qresidual_function[1].qo, qi2=qi)
-        self.qrelu.freeze(self.qadd.qo)
+            qo = self.qadd.freeze(qi1=qo_1, qi2=qi)
+        qo = self.qrelu.freeze(qi=qo)
+        return qo
 
     def quantize_inference(self, qx, mode='cmsis_nn'):
         qx1 = self.qresidual_function[0].quantize_inference(qx, mode=mode)
@@ -118,7 +119,7 @@ class BasicBlock(nn.Module):
         else:
             qx2 = qx
         qx = self.qadd.quantize_inference(qx1, qx2, mode=mode)
-        qx = self.qrelu.quantize_inference(qx)
+        qx = self.qrelu.quantize_inference(qx, mode=mode)
         return qx
 
 
@@ -220,32 +221,25 @@ class ResNet(nn.Module):
 
         return output
 
-    def quantize(self, num_bits=8, signed=True, symmetric_feature=False):
+    def quantize(self, num_bits=8, signed=True):
         self.qconv1 = QConvBNReLU(self.conv1[0], self.conv1[1], qi=True,
-                                  num_bits=num_bits, signed=signed,
-                                  symmetric_feature=symmetric_feature)
+                                  num_bits=num_bits, signed=signed)
         # conv2_x
         for block in self.conv2_x:
-            block.quantize(first_qi=False, num_bits=num_bits, signed=signed,
-                           symmetric_feature=symmetric_feature)
+            block.quantize(first_qi=False, num_bits=num_bits, signed=signed)
         # conv3_x
         for block in self.conv3_x:
-            block.quantize(first_qi=False, num_bits=num_bits, signed=signed,
-                           symmetric_feature=symmetric_feature)
+            block.quantize(first_qi=False, num_bits=num_bits, signed=signed)
         # conv4_x
         for block in self.conv4_x:
-            block.quantize(first_qi=False, num_bits=num_bits, signed=signed,
-                           symmetric_feature=symmetric_feature)
+            block.quantize(first_qi=False, num_bits=num_bits, signed=signed)
         # conv5_x
         for block in self.conv5_x:
-            block.quantize(first_qi=False, num_bits=num_bits, signed=signed,
-                           symmetric_feature=symmetric_feature)
-        self.qavg_pool = QMean(dim=[-1, -2], keepdim=True, qi=False, qo=True,
-                               num_bits=num_bits, signed=signed,
-                               symmetric_feature=symmetric_feature)
+            block.quantize(first_qi=False, num_bits=num_bits, signed=signed)
+        self.qavg_pool = QAdaptiveAvgPool2d((1, 1), qi=False, qo=True,
+                               num_bits=num_bits, signed=signed)
         self.qfc = QLinear(self.fc, relu=False, qi=False, qo=True,
-                           num_bits=num_bits, signed=signed,
-                           symmetric_feature=symmetric_feature)
+                           num_bits=num_bits, signed=signed)
 
     def quantize_forward(self, x):
         x = self.qconv1(x)
@@ -267,26 +261,22 @@ class ResNet(nn.Module):
         return x
 
     def freeze(self):
-        self.qconv1.freeze()
+        qo = self.qconv1.freeze()
         # conv2_x
-        last_qo = self.qconv1.qo
         for block in self.conv2_x:
-            block.freeze(qi=last_qo)
-            last_qo = block.qadd.qo
+            qo = block.freeze(qi=qo)
         # conv3_x
         for block in self.conv3_x:
-            block.freeze(qi=last_qo)
-            last_qo = block.qadd.qo
+            qo = block.freeze(qi=qo)
         # conv4_x
         for block in self.conv4_x:
-            block.freeze(qi=last_qo)
-            last_qo = block.qadd.qo
+            qo = block.freeze(qi=qo)
         # conv5_x
         for block in self.conv5_x:
-            block.freeze(qi=last_qo)
-            last_qo = block.qadd.qo
-        self.qavg_pool.freeze(qi=last_qo)
-        self.qfc.freeze(qi=self.qavg_pool.qo)
+            qo = block.freeze(qi=qo)
+        qo = self.qavg_pool.freeze(qi=qo)
+        qo = self.qfc.freeze(qi=qo)
+        return qo
 
     def quantize_inference(self, x, mode='cmsis_nn'):
         qx = self.qconv1.qi.quantize_tensor(x)
