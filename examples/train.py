@@ -16,6 +16,7 @@ from models.model import (
 )
 from torchquanter.utils import random_seed
 from models.resnet import resnet18_quant
+from models.mobilenetv2 import mobilenetv2_quant
 from utils import get_loader
 
 
@@ -107,6 +108,7 @@ if __name__ == "__main__":
     #     choice=[1,0,0,0], first_channel=1
     # )
     model = resnet18_quant()
+    model = mobilenetv2_quant()
 
     model = model.to(device)
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)

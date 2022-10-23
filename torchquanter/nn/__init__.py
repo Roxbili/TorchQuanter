@@ -15,3 +15,4 @@ from .qsqrt import QSqrt
 from .qdiv import QDiv
 from .qavgpool2d import QAvgPool2d, QAdaptiveAvgPool2d
 from .qsigmoid import QSigmoid
+from .qconcat import QConcat

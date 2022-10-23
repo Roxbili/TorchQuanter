@@ -50,7 +50,7 @@ class QSoftmax(QModule):
         
         return x
 
-    def quantize_inference(self, x):
+    def quantize_inference(self, x, **kwargs):
         x = self.qi.dequantize_tensor(x)
         x = F.softmax(x, dim=self.dim)
         x = self.qo.quantize_tensor(x)

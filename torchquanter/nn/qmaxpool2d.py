@@ -31,6 +31,6 @@ class QMaxPool2d(QModule):
 
         return x
 
-    def quantize_inference(self, x, mode=None):
+    def quantize_inference(self, x, **kwargs):
         return F.max_pool2d(x, self.maxpool2d_module.kernel_size, 
                         self.maxpool2d_module.stride, self.maxpool2d_module.padding)

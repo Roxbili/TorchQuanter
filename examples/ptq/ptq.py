@@ -16,6 +16,7 @@ from models.model import (
 )
 from torchquanter.utils import random_seed
 from models.resnet import resnet18_quant
+from models.mobilenetv2 import mobilenetv2_quant
 from utils import get_loader, export_onnx
 
 
@@ -94,7 +95,8 @@ if __name__ == "__main__":
     #     transformer1_embedding_dim=[16], transformer1_dim_feedforward=[16],
     #     choice=[1,0,0,0], first_channel=1
     # )
-    model = resnet18_quant()
+    # model = resnet18_quant()
+    model = mobilenetv2_quant()
 
     model = model.to(device)
     state_dict = torch.load(os.path.join(save_model_dir, f'{args.dataset}_{model._get_name()}.pth'), map_location=device)

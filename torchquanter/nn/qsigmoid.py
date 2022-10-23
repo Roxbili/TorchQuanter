@@ -42,7 +42,7 @@ class QSigmoid(QModule):
             x = FakeQuantize.apply(x, self.qo)
         return x
 
-    def quantize_inference(self, x):
+    def quantize_inference(self, x, **kwargs):
         x = self.qi.dequantize_tensor(x)
         x = F.sigmoid(x)
         x = self.qo.quantize_tensor(x)

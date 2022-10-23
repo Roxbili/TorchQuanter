@@ -142,14 +142,18 @@ class MobileNetV2(nn.Module):
         x = self.fc(x)
         return x
 
-    def quantize(self, num_bits=8, signed=True):
-        self.qconv0 = QConvBNReLU(self.conv0, self.bn0, qi=True, qo=True, num_bits=num_bits, signed=signed)
+    def quantize(self, num_bits=8, signed=True, symmetric_feature=False):
+        self.qconv0 = QConvBNReLU(self.conv0, self.bn0, qi=True, qo=True,
+            num_bits=num_bits, signed=signed, symmetric_feature=symmetric_feature)
         for i in range(len(self.bottlenecks)):
-            self.bottlenecks[i].quantize()
-        self.qconv1 = QConvBNReLU(self.conv1, self.bn1, qi=False, qo=True, num_bits=num_bits, signed=signed)
-        self.qavg = QAdaptiveAvgPool2d(1, qi=False, qo=True, num_bits=num_bits, signed=signed)
+            self.bottlenecks[i].quantize(symmetric_feature=symmetric_feature)
+        self.qconv1 = QConvBNReLU(self.conv1, self.bn1, qi=False, qo=True,
+            num_bits=num_bits, signed=signed, symmetric_feature=symmetric_feature)
+        self.qavg = QAdaptiveAvgPool2d(1, qi=False, qo=True,
+            num_bits=num_bits, signed=signed, symmetric_feature=symmetric_feature)
         # self.qavg = QMean(dim=[-1, -2], keepdim=True, qi=False, qo=True, num_bits=num_bits, signed=signed)
-        self.qfc = QLinear(self.fc, qi=False, qo=True, relu=False, num_bits=num_bits, signed=signed)
+        self.qfc = QLinear(self.fc, qi=False, qo=True, relu=False,
+            num_bits=num_bits, signed=signed, symmetric_feature=symmetric_feature)
 
     def quantize_forward(self, x):
         x = self.qconv0(x)
